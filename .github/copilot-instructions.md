@@ -52,12 +52,6 @@ Key abstractions:
 
 ---
 
-## `.copilot` Directory
-
-All files under `.copilot/` (this file, plans, notes) are part of the project and **must be committed to git**. They are considered first-class project documentation, not throwaway scratch notes. Keep them accurate, professional, and free of sensitive information (secrets, credentials, personal data) at all times — this is a **public repository** and anything here is publicly visible.
-
----
-
 ## Build Plan
 
 The active build plan lives in `.copilot/plans/main.md`. It covers the open-source technical roadmap (Phases 1–9). The enterprise/commercial roadmap lives in `vertexrs-internal/.copilot/strategy/plan.md` (private repo). Before starting any non-trivial work, check the plan and confirm the next step aligns with the current phase.
