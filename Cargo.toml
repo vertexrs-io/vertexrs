@@ -1,0 +1,29 @@
+[workspace]
+members   = ["vertexrs", "vertexrs-macro"]
+resolver  = "2"
+
+[workspace.dependencies]
+# Arrow memory substrate
+arrow-buffer = "58"
+arrow-array  = "58"
+
+# Proc-macro toolchain (used by vertexrs-macro)
+proc-macro2 = "1"
+quote       = "1"
+syn         = { version = "2", features = ["full", "visit"] }
+
+# Half-precision float (f16)
+half = "2"
+
+# Dirty-bitmap tracking
+roaring = "0.11"
+
+# Allocator (optional; enabled by the `jemalloc` feature in vertexrs)
+tikv-jemallocator = "0.6"
+
+# Statistical benchmarking framework (dev/bench only)
+criterion = { version = "0.8", features = ["html_reports"] }
+
+# Polars: batch computation baseline for benchmark comparisons.
+# Only compiled when the `bench-polars` feature is enabled in vertexrs.
+polars = { version = "0.53", features = ["lazy"] }

@@ -1,0 +1,93 @@
+# cargo-make task file — mirrors CI exactly so local and CI behaviour are identical.
+# Install: cargo install cargo-make
+# Run a task: cargo make <task>
+
+[config]
+default_to_workspace = false
+
+# ── Individual steps ──────────────────────────────────────────────────────────
+
+[tasks.check]
+description = "Fast type-check (no codegen)"
+command = "cargo"
+args = ["check"]
+
+[tasks.fmt]
+description = "Verify formatting (fails on diff, same as CI)"
+command = "cargo"
+args = ["fmt", "--check"]
+
+[tasks.fmt-fix]
+description = "Auto-format all sources"
+command = "cargo"
+args = ["fmt"]
+
+[tasks.lint]
+description = "Clippy — fails on any warning"
+command = "cargo"
+args = ["clippy", "--", "-D", "warnings"]
+
+[tasks.test]
+description = "All unit + integration + doc tests"
+command = "cargo"
+args = ["test"]
+
+[tasks.test-slow]
+description = "All tests including #[ignore]-tagged slow tests"
+command = "cargo"
+args = ["test", "--", "--include-ignored"]
+
+[tasks.audit]
+# Requires: cargo install cargo-audit
+# Fails the build on any RUSTSEC advisory at severity >= Medium.
+# Run locally before opening a PR; also runs in CI on every PR.
+description = "Security audit — fails on RUSTSEC advisory >= Medium"
+command = "cargo"
+args = ["audit"]
+
+[tasks.test-perf]
+description = "Performance-ratio tests (require bench-polars feature, release mode)"
+command = "cargo"
+args = ["test", "--release", "--features", "bench-polars", "--", "perf_ratio"]
+
+[tasks.bench]
+description = "Run all criterion benchmarks (vertexrs only)"
+command = "cargo"
+args = ["bench"]
+
+[tasks.bench-polars]
+description = "Run all benchmarks including Polars comparison groups"
+command = "cargo"
+args = ["bench", "--features", "bench-polars"]
+
+[tasks.bench-save]
+description = "Run benchmarks and save results as the 'main' baseline for critcmp"
+command = "cargo"
+args = ["bench", "--", "--save-baseline", "main"]
+
+[tasks.bench-cmp]
+# Requires: cargo install critcmp
+# Compares the current run against the saved 'main' baseline.
+# CI uses this after every PR bench run; fails if any throughput benchmark
+# regresses by more than 15% (matches the gate defined in CLAUDE.md).
+description = "Compare current bench results against the 'main' baseline (requires critcmp)"
+command = "critcmp"
+args = ["main", "--threshold", "15"]
+
+[tasks.coverage]
+# Requires: cargo install cargo-llvm-cov  (also needs llvm-tools-preview rustup component)
+# Fails the build if line coverage across the vertexrs and vertexrs-macro crates
+# drops below 90%, as required by CLAUDE.md.
+description = "Line-coverage check — fails if coverage < 90%"
+command = "cargo"
+args = ["llvm-cov", "--all-features", "--lib", "--fail-under-lines", "90"]
+
+# ── Composite flows ───────────────────────────────────────────────────────────
+
+[tasks.ci]
+description = "Full CI gate: check → fmt → lint → test → coverage → audit (mirrors GitHub Actions)"
+dependencies = ["check", "fmt", "lint", "test", "coverage", "audit"]
+
+[tasks.ci-bench]
+description = "Benchmark CI gate: run benches then compare against baseline"
+dependencies = ["bench", "bench-cmp"]
