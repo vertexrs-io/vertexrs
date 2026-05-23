@@ -60,7 +60,9 @@ impl<T: ArrowNativeType> AlignedChunk<T> {
             src.len(),
             CHUNK_SIZE,
         );
-        Self { data: ScalarBuffer::from(src.to_vec()) }
+        Self {
+            data: ScalarBuffer::from(src.to_vec()),
+        }
     }
 
     /// Returns a slice of the elements in this chunk.
@@ -129,7 +131,10 @@ pub struct ChunkedColumn<T: ArrowNativeType> {
 impl<T: ArrowNativeType> ChunkedColumn<T> {
     /// Creates an empty column.
     pub fn new() -> Self {
-        Self { chunks: Vec::new(), dirty: RoaringBitmap::new() }
+        Self {
+            chunks: Vec::new(),
+            dirty: RoaringBitmap::new(),
+        }
     }
 
     /// Builds a column from a flat slice, splitting into [`CHUNK_SIZE`]-element chunks.
@@ -257,7 +262,10 @@ impl<T: ArrowBacked> ChunkedColumn<T> {
     ///
     /// Each conversion is zero-copy (Arc buffer clone).
     pub fn to_arrow_arrays(&self) -> Vec<PrimitiveArray<T::ArrowType>> {
-        self.chunks.iter().map(AlignedChunk::to_arrow_array).collect()
+        self.chunks
+            .iter()
+            .map(AlignedChunk::to_arrow_array)
+            .collect()
     }
 }
 
@@ -328,10 +336,10 @@ mod tests {
         let col = ChunkedColumn::from_slice(&data);
 
         assert_eq!(col.get(0), Some(0_i64));
-        assert_eq!(col.get(255), Some(255_i64));    // last of first chunk
-        assert_eq!(col.get(256), Some(256_i64));    // first of second chunk
-        assert_eq!(col.get(599), Some(599_i64));    // last element
-        assert_eq!(col.get(600), None);             // out of bounds
+        assert_eq!(col.get(255), Some(255_i64)); // last of first chunk
+        assert_eq!(col.get(256), Some(256_i64)); // first of second chunk
+        assert_eq!(col.get(599), Some(599_i64)); // last element
+        assert_eq!(col.get(600), None); // out of bounds
     }
 
     #[test]
@@ -417,8 +425,8 @@ mod tests {
         let data: Vec<f64> = (0..600).map(|i| i as f64).collect();
         let mut col = ChunkedColumn::from_slice(&data);
 
-        col.mark_dirty(0..1);      // chunk 0
-        col.mark_dirty(512..513);  // chunk 2
+        col.mark_dirty(0..1); // chunk 0
+        col.mark_dirty(512..513); // chunk 2
         let dirty: Vec<usize> = col.dirty_chunks().map(|(i, _)| i).collect();
         assert_eq!(dirty, [0, 2]);
 

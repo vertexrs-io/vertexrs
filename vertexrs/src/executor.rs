@@ -60,7 +60,10 @@ pub struct WarningCollector {
 impl WarningCollector {
     /// Creates a collector with the given maximum capacity.
     pub fn new(cap: usize) -> Self {
-        Self { warnings: Vec::new(), cap }
+        Self {
+            warnings: Vec::new(),
+            cap,
+        }
     }
 
     /// Appends `msg` if the cap has not been reached.
@@ -135,7 +138,9 @@ pub struct NaConfig {
 
 impl Default for NaConfig {
     fn default() -> Self {
-        Self { warn_threshold: 0.5 }
+        Self {
+            warn_threshold: 0.5,
+        }
     }
 }
 
@@ -199,8 +204,10 @@ impl<T: ArrowNativeType + PartialEq> Executor<T> {
             n,
         );
 
-        let null_chunks =
-            columns.iter().map(|c| vec![None; c.chunk_count()]).collect();
+        let null_chunks = columns
+            .iter()
+            .map(|c| vec![None; c.chunk_count()])
+            .collect();
 
         let kernels_arc: Vec<Option<Arc<dyn Kernel<T>>>> =
             kernels.into_iter().map(|k| k.map(Arc::from)).collect();
@@ -318,8 +325,7 @@ impl<T: ArrowNativeType + PartialEq> Executor<T> {
                 let chunk_len = input_values.first().map(|v| v.len()).unwrap_or(0);
 
                 // ── Execute kernel (catch panics) ─────────────────────────
-                let input_slices: Vec<&[T]> =
-                    input_values.iter().map(Vec::as_slice).collect();
+                let input_slices: Vec<&[T]> = input_values.iter().map(Vec::as_slice).collect();
 
                 let kernel_result = panic::catch_unwind(panic::AssertUnwindSafe(|| {
                     kernel.execute_chunk(&input_slices, chunk_idx)
@@ -331,11 +337,7 @@ impl<T: ArrowNativeType + PartialEq> Executor<T> {
                         let msg = payload
                             .downcast_ref::<&str>()
                             .map(|s| s.to_string())
-                            .or_else(|| {
-                                payload
-                                    .downcast_ref::<String>()
-                                    .cloned()
-                            })
+                            .or_else(|| payload.downcast_ref::<String>().cloned())
                             .unwrap_or_else(|| "kernel panicked".to_string());
 
                         match self.failure_mode {
@@ -359,8 +361,7 @@ impl<T: ArrowNativeType + PartialEq> Executor<T> {
 
                 // ── Purity check (debug mode) ─────────────────────────────
                 if self.debug_purity_check && !chunk_failed {
-                    let input_slices2: Vec<&[T]> =
-                        input_values.iter().map(Vec::as_slice).collect();
+                    let input_slices2: Vec<&[T]> = input_values.iter().map(Vec::as_slice).collect();
                     let second = panic::catch_unwind(panic::AssertUnwindSafe(|| {
                         kernel.execute_chunk(&input_slices2, chunk_idx)
                     }));
@@ -388,8 +389,7 @@ impl<T: ArrowNativeType + PartialEq> Executor<T> {
 
                 // ── NA threshold check ────────────────────────────────────
                 if let Some(ref null_buf) = output_nulls {
-                    let fraction =
-                        null_buf.null_count() as f64 / chunk_len.max(1) as f64;
+                    let fraction = null_buf.null_count() as f64 / chunk_len.max(1) as f64;
                     if fraction > self.na_config.warn_threshold {
                         self.warnings.push(format!(
                             "node '{}' chunk {}: NA fraction {:.1}% exceeds \
@@ -424,12 +424,7 @@ impl<T: ArrowNativeType + PartialEq> Executor<T> {
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
-    fn set_null_chunk(
-        &mut self,
-        node_id: NodeId,
-        chunk_idx: usize,
-        nulls: Option<NullBuffer>,
-    ) {
+    fn set_null_chunk(&mut self, node_id: NodeId, chunk_idx: usize, nulls: Option<NullBuffer>) {
         let v = &mut self.null_chunks[node_id.index()];
         if v.len() <= chunk_idx {
             v.resize(chunk_idx + 1, None);
@@ -582,7 +577,11 @@ mod tests {
 
         // Chunk 0 of B should be all-null (3 elements).
         let null_buf = exec.null_chunk(b_id, 0).expect("null buffer should be set");
-        assert_eq!(null_buf.null_count(), 3, "all 3 output elements should be null");
+        assert_eq!(
+            null_buf.null_count(),
+            3,
+            "all 3 output elements should be null"
+        );
 
         // At least one warning should have been emitted.
         assert!(!exec.warnings.is_empty());
@@ -609,7 +608,9 @@ mod tests {
     fn na_threshold_warning_on_soft_failure() {
         let (mut exec, a_id, _b_id) = panicking_exec();
         exec.failure_mode = FailureMode::Soft;
-        exec.na_config = NaConfig { warn_threshold: 0.5 }; // 50%
+        exec.na_config = NaConfig {
+            warn_threshold: 0.5,
+        }; // 50%
 
         exec.mark_source_dirty(a_id, 0..3);
         exec.run().expect("soft mode must not return Err");
@@ -617,7 +618,9 @@ mod tests {
         // Null fraction = 3/3 = 100% > 50% → threshold warning expected.
         let warnings = exec.drain_warnings();
         assert!(
-            warnings.iter().any(|w| w.contains("NA fraction") || w.contains("threshold")),
+            warnings
+                .iter()
+                .any(|w| w.contains("NA fraction") || w.contains("threshold")),
             "expected an NA-threshold warning; got: {warnings:?}",
         );
     }

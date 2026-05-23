@@ -270,8 +270,7 @@ mod correctness {
         for i in 0..UPDATE {
             prices_mutated[i] += 1.0;
         }
-        let frame_mutated =
-            Frame::new().append(Node::from_data("price", prices_mutated.clone()));
+        let frame_mutated = Frame::new().append(Node::from_data("price", prices_mutated.clone()));
         p.push(&frame_mutated);
         p.compute().unwrap();
         let vtx_incremental = p.output().get::<f64>("net").unwrap().to_vec();
@@ -314,8 +313,7 @@ mod correctness {
         for i in 0..UPDATE {
             prices_mutated[i] += 1;
         }
-        let frame_mutated =
-            Frame::new().append(Node::from_data("price", prices_mutated.clone()));
+        let frame_mutated = Frame::new().append(Node::from_data("price", prices_mutated.clone()));
         p.push(&frame_mutated);
         p.compute().unwrap();
         let vtx_net = p.output().get::<i64>("net").unwrap().to_vec();
@@ -329,7 +327,10 @@ mod correctness {
             .into_no_null_iter()
             .collect();
 
-        assert_eq!(vtx_net, pol_net, "i64 incremental result mismatch vs Polars");
+        assert_eq!(
+            vtx_net, pol_net,
+            "i64 incremental result mismatch vs Polars"
+        );
     }
 }
 

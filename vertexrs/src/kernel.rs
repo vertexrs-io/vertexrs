@@ -89,16 +89,26 @@ pub struct BinaryKernel<T, F> {
 impl<T: ArrowNativeType, F: Fn(T, T) -> T + Send + Sync> BinaryKernel<T, F> {
     /// Creates a kernel from a binary closure.
     pub fn new(op: F) -> Self {
-        Self { op, _phantom: PhantomData }
+        Self {
+            op,
+            _phantom: PhantomData,
+        }
     }
 }
 
 impl<T: ArrowNativeType, F: Fn(T, T) -> T + Send + Sync> Kernel<T> for BinaryKernel<T, F> {
     fn execute_chunk(&self, inputs: &[&[T]], _chunk_idx: usize) -> Vec<T> {
-        assert_eq!(inputs.len(), 2, "BinaryKernel requires exactly 2 inputs, got {}", inputs.len());
+        assert_eq!(
+            inputs.len(),
+            2,
+            "BinaryKernel requires exactly 2 inputs, got {}",
+            inputs.len()
+        );
         let len = inputs[0].len();
         assert_eq!(inputs[1].len(), len, "BinaryKernel: input length mismatch");
-        (0..len).map(|i| (self.op)(inputs[0][i], inputs[1][i])).collect()
+        (0..len)
+            .map(|i| (self.op)(inputs[0][i], inputs[1][i]))
+            .collect()
     }
 
     fn contract(&self) -> ChunkContract {
@@ -124,13 +134,21 @@ pub struct UnaryKernel<T, F> {
 impl<T: ArrowNativeType, F: Fn(T) -> T + Send + Sync> UnaryKernel<T, F> {
     /// Creates a kernel from a unary closure.
     pub fn new(op: F) -> Self {
-        Self { op, _phantom: PhantomData }
+        Self {
+            op,
+            _phantom: PhantomData,
+        }
     }
 }
 
 impl<T: ArrowNativeType, F: Fn(T) -> T + Send + Sync> Kernel<T> for UnaryKernel<T, F> {
     fn execute_chunk(&self, inputs: &[&[T]], _chunk_idx: usize) -> Vec<T> {
-        assert_eq!(inputs.len(), 1, "UnaryKernel requires exactly 1 input, got {}", inputs.len());
+        assert_eq!(
+            inputs.len(),
+            1,
+            "UnaryKernel requires exactly 1 input, got {}",
+            inputs.len()
+        );
         inputs[0].iter().copied().map(|v| (self.op)(v)).collect()
     }
 
@@ -160,14 +178,21 @@ impl<T: ArrowNativeType> Kernel<T> for CondKernel<T> {
     /// `inputs[0]` = mask (nonzero = true), `inputs[1]` = then, `inputs[2]` = else.
     fn execute_chunk(&self, inputs: &[&[T]], _chunk_idx: usize) -> Vec<T> {
         assert_eq!(
-            inputs.len(), 3,
+            inputs.len(),
+            3,
             "CondKernel requires exactly 3 inputs (mask, then, else), got {}",
             inputs.len(),
         );
         let len = inputs[0].len();
         let zero = T::default();
         (0..len)
-            .map(|i| if inputs[0][i] != zero { inputs[1][i] } else { inputs[2][i] })
+            .map(|i| {
+                if inputs[0][i] != zero {
+                    inputs[1][i]
+                } else {
+                    inputs[2][i]
+                }
+            })
             .collect()
     }
 
@@ -249,8 +274,10 @@ pub fn cond<T: ArrowNativeType>() -> impl Kernel<T> {
 /// assert!(out.is_valid(3));
 /// ```
 pub fn propagate_nulls(inputs: &[Option<&NullBuffer>]) -> Option<NullBuffer> {
-    let null_bufs: Vec<&BooleanBuffer> =
-        inputs.iter().filter_map(|n| n.map(NullBuffer::inner)).collect();
+    let null_bufs: Vec<&BooleanBuffer> = inputs
+        .iter()
+        .filter_map(|n| n.map(NullBuffer::inner))
+        .collect();
 
     if null_bufs.is_empty() {
         return None; // all inputs fully valid
@@ -274,10 +301,16 @@ mod tests {
 
     #[test]
     fn chunk_contract_variants_eq() {
-        assert_eq!(ChunkContract::ElementIndependent, ChunkContract::ElementIndependent);
+        assert_eq!(
+            ChunkContract::ElementIndependent,
+            ChunkContract::ElementIndependent
+        );
         assert_eq!(ChunkContract::FixedSize(4), ChunkContract::FixedSize(4));
         assert_ne!(ChunkContract::FixedSize(4), ChunkContract::FixedSize(8));
-        assert_eq!(ChunkContract::BoundaryDependent, ChunkContract::BoundaryDependent);
+        assert_eq!(
+            ChunkContract::BoundaryDependent,
+            ChunkContract::BoundaryDependent
+        );
     }
 
     // ── BinaryKernel ─────────────────────────────────────────────────────────
@@ -439,8 +472,8 @@ mod tests {
         let b = NullBuffer::new(BooleanBuffer::from(vec![true, true, false, true]));
         let out = propagate_nulls(&[Some(&a), Some(&b)]).unwrap();
         assert!(out.is_valid(0));
-        assert!(out.is_null(1));  // null from a
-        assert!(out.is_null(2));  // null from b
+        assert!(out.is_null(1)); // null from a
+        assert!(out.is_null(2)); // null from b
         assert!(out.is_valid(3));
         assert_eq!(out.null_count(), 2);
     }

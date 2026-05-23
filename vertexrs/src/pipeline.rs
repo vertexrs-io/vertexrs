@@ -90,7 +90,11 @@ pub struct PipelineSettings {
 
 impl Default for PipelineSettings {
     fn default() -> Self {
-        Self { failure_mode: FailureMode::Soft, na_threshold: 0.5, purity_check: false }
+        Self {
+            failure_mode: FailureMode::Soft,
+            na_threshold: 0.5,
+            purity_check: false,
+        }
     }
 }
 
@@ -161,7 +165,10 @@ impl Pipeline {
     /// Called by the [`pipeline!`] macro; do not call this directly.
     #[doc(hidden)]
     pub fn new(inner: Box<dyn PipelineImpl>) -> Self {
-        Self { inner, isolated_errors: Vec::new() }
+        Self {
+            inner,
+            isolated_errors: Vec::new(),
+        }
     }
 
     /// Copies source columns from `frame` into the pipeline.
@@ -181,7 +188,8 @@ impl Pipeline {
     pub fn compute(&mut self) -> Result<(), PipelineError> {
         self.isolated_errors.clear();
         let result = self.inner.run();
-        self.isolated_errors.extend(self.inner.drain_isolated_errors());
+        self.isolated_errors
+            .extend(self.inner.drain_isolated_errors());
         result
     }
 
