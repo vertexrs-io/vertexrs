@@ -48,7 +48,7 @@ jobs:
 
       # Only reached if the comparison passed — promote new results to "main" baseline
       - name: Save new baseline
-        run: cargo bench -- --save-baseline main
+        run: cargo make bench-save
 
       - name: Cache new baseline
         uses: actions/cache/save@v4
