@@ -65,7 +65,8 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: cargo-audit
-      - run: cargo audit
+      # Invoke the standalone binary directly — no Rust toolchain required.
+      - run: cargo-audit audit
 
   # ── Heavier jobs ─────────────────────────────────────────────────────────────
 

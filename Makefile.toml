@@ -38,10 +38,10 @@ command = "cargo"
 args = ["test", "--", "--include-ignored"]
 
 [tasks.audit]
-# Requires: cargo install cargo-audit
 # Fails the build on any RUSTSEC advisory at severity >= Medium.
 # Run locally before opening a PR; also runs in CI on every PR.
 description = "Security audit — fails on RUSTSEC advisory >= Medium"
+install_crate = "cargo-audit"
 command = "cargo"
 args = ["audit"]
 
@@ -66,11 +66,11 @@ command = "cargo"
 args = ["bench", "--", "--save-baseline", "main"]
 
 [tasks.bench-cmp]
-# Requires: cargo install critcmp
 # Compares the current run against the saved 'main' baseline.
 # CI uses this after every PR bench run; fails if any throughput benchmark
-# regresses by more than 15% (matches the gate defined in CLAUDE.md).
+# regresses by more than 15% (matches the benchmarking policy in .github/copilot-instructions.md).
 description = "Compare current bench results against the 'main' baseline (requires critcmp)"
+install_crate = "critcmp"
 command = "critcmp"
 args = ["main", "--threshold", "15"]
 
@@ -79,10 +79,10 @@ args = ["main", "--threshold", "15"]
 # `coverage` task (which has run_task routing to tarpaulin/kcov). Without it
 # the task has both `command` and `run_task` set, which is invalid.
 clear = true
-# Requires: cargo install cargo-llvm-cov  (also needs llvm-tools-preview rustup component)
 # Fails the build if line coverage across the vertexrs and vertexrs-macro crates
-# drops below 90%, as required by CLAUDE.md.
+# drops below 90%, as required by the testing policy in .github/copilot-instructions.md.
 description = "Line-coverage check — fails if coverage < 90%"
+install_crate = "cargo-llvm-cov"
 command = "cargo"
 args = ["llvm-cov", "--all-features", "--lib", "--fail-under-lines", "90"]
 

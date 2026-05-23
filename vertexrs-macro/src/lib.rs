@@ -162,13 +162,13 @@ fn is_bool_return(closure: &ExprClosure) -> bool {
 /// ```
 ///
 /// **Row mode** — element-wise kernel lifted across the column:
-/// ```ignore
+/// ```text
 /// node!(tax   = price.row(|x| x * 0.2));
 /// node!(total = price.row(|x| x + tax));   // `tax` is another node
 /// ```
 ///
 /// **Col mode** — whole-column operation (may change length):
-/// ```ignore
+/// ```text
 /// node!(sorted   = price.col(|c| c.sort()));
 /// node!(filtered = price.col(|c| c.filter(|x| *x > 0.0)));
 /// node!(tax_on_sorted = sorted.row(|x| x * 0.2));  // resumes after col op

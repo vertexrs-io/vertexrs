@@ -180,4 +180,12 @@ bench    → cargo bench (save baseline on main merges only)
 
 `cargo make` is used for local task orchestration. The `Makefile.toml` should mirror the CI steps so local and CI behaviour are identical.
 
+---
+
+## Instruction & Agent Files
+
+- Instruction files (`.instructions.md`), agent files (`.agent.md`), and skill files (`SKILL.md`) should each be **≤ 2 000 tokens**
+- If a file grows beyond that, split it: extract the overflow into a focused sub-file and `@include` or link it from the parent file
+- Keep each file tightly scoped to one topic — this makes token budgets easier to respect and makes individual files easier to reason about
+
 

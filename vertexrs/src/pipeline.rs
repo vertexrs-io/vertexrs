@@ -139,8 +139,8 @@ pub trait PipelineImpl: Send {
 /// subset of those nodes as an output [`Frame`].
 ///
 /// # Example
-/// ```rust,ignore
-/// use vertexrs::{Frame, Node, pipeline};
+/// ```rust
+/// use vertexrs::{Frame, Node, node, pipeline};
 ///
 /// let mut p = pipeline! {
 ///     source!(price: f64);
@@ -149,7 +149,8 @@ pub trait PipelineImpl: Send {
 ///     output!(tax, total)
 /// };
 ///
-/// p.push(Frame::new().append(Node::from_data("price", vec![10.0_f64, 20.0])));
+/// let frame = Frame::new().append(Node::from_data("price", vec![10.0_f64, 20.0]));
+/// p.push(&frame);
 /// p.compute().unwrap();
 /// assert_eq!(p.output().get::<f64>("total").unwrap(), &[12.0, 24.0]);
 /// ```
