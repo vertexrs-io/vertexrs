@@ -31,12 +31,13 @@ Every benchmark file with a Polars equivalent must:
 
 ## Regression policy
 
-- Save a baseline on every merge to `main`: `cargo bench -- --save-baseline main`
+- Save a baseline on every merge to `main`: `cargo make bench-save`
 - Regressions > 15% on throughput benchmarks must be explained and justified in the PR
 - A faster-but-wrong result is never acceptable — correctness assertions are non-negotiable
 
 ## Baseline comparison
 
 ```bash
-cargo bench -- --baseline main   # compare current vs saved main baseline
+cargo make bench      # run the current benchmark suite
+cargo make bench-cmp  # compare current results vs the saved main baseline
 ```
