@@ -75,6 +75,10 @@ command = "critcmp"
 args = ["main", "--threshold", "15"]
 
 [tasks.coverage]
+# clear = true prevents cargo-make from merging our task with its built-in
+# `coverage` task (which has run_task routing to tarpaulin/kcov). Without it
+# the task has both `command` and `run_task` set, which is invalid.
+clear = true
 # Requires: cargo install cargo-llvm-cov  (also needs llvm-tools-preview rustup component)
 # Fails the build if line coverage across the vertexrs and vertexrs-macro crates
 # drops below 90%, as required by CLAUDE.md.

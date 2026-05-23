@@ -19,7 +19,7 @@
 use std::ops::Range;
 
 use arrow_array::PrimitiveArray;
-use arrow_buffer::{ArrowNativeType, ScalarBuffer};
+use arrow_buffer::{ArrowNativeType, MutableBuffer, ScalarBuffer};
 use roaring::RoaringBitmap;
 
 use crate::ArrowBacked;
@@ -60,8 +60,14 @@ impl<T: ArrowNativeType> AlignedChunk<T> {
             src.len(),
             CHUNK_SIZE,
         );
+        // Arrow's MutableBuffer uses a 64-byte-aligned allocator (Arrow spec
+        // §2.3). ScalarBuffer::from(Vec) wraps the Vec's allocation directly
+        // and does not guarantee alignment, so we go through MutableBuffer to
+        // uphold the invariant documented on this type.
+        let mut buf = MutableBuffer::new(src.len() * std::mem::size_of::<T>());
+        buf.extend(src.iter().copied());
         Self {
-            data: ScalarBuffer::from(src.to_vec()),
+            data: ScalarBuffer::new(buf.into(), 0, src.len()),
         }
     }
 
