@@ -1,29 +1,39 @@
 [workspace]
-members   = ["vertexrs", "vertexrs-macro"]
-resolver  = "2"
+members = ["vertexrs", "vertexrs-macro"]
+resolver = "2"
 
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+repository = "https://github.com/vertexrs-io/vertexrs"
+
+# ── External dependencies ─────────────────────────────────────────────────────
 [workspace.dependencies]
-# Arrow memory substrate
+arrow-array = "58"
 arrow-buffer = "58"
-arrow-array  = "58"
-
-# Proc-macro toolchain (used by vertexrs-macro)
-proc-macro2 = "1"
-quote       = "1"
-syn         = { version = "2", features = ["full", "visit"] }
-
-# Half-precision float (f16)
+criterion = { version = "0.8", features = ["html_reports"] }
 half = "2"
-
-# Dirty-bitmap tracking
+polars = { version = "0.53", features = ["lazy"] }
+proc-macro2 = "1"
+quote = "1"
 roaring = "0.11"
-
-# Allocator (optional; enabled by the `jemalloc` feature in vertexrs)
+syn = { version = "2", features = ["full", "visit"] }
 tikv-jemallocator = "0.6"
 
-# Statistical benchmarking framework (dev/bench only)
-criterion = { version = "0.8", features = ["html_reports"] }
+# ── Internal crates ───────────────────────────────────────────────────────────
+# version must stay in sync with [workspace.package]
+vertexrs-macro = { path = "vertexrs-macro", version = "0.1.0" }
 
-# Polars: batch computation baseline for benchmark comparisons.
-# Only compiled when the `bench-polars` feature is enabled in vertexrs.
-polars = { version = "0.53", features = ["lazy"] }
+# ── Lints ─────────────────────────────────────────────────────────────────────
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+dbg_macro = "warn"
+todo = "warn"
+
+# ── Profiles ──────────────────────────────────────────────────────────────────
+[profile.release]
+lto = "thin"
+codegen-units = 1

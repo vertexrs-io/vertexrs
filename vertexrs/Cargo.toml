@@ -1,36 +1,42 @@
 [package]
-name    = "vertexrs"
-version = "0.1.0"
-edition = "2024"
+name = "vertexrs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "High-performance incremental computation engine with compile-time DAG pipelines"
+keywords = ["incremental", "dag", "pipeline", "dataframe", "streaming"]
+categories = ["data-structures", "algorithms", "science"]
+exclude = [".github/**"]
 
 [features]
-default      = []
-jemalloc     = ["dep:tikv-jemallocator"]
+default = []
+jemalloc = ["dep:tikv-jemallocator"]
 # Enable Polars as a dependency for benchmark comparison.
 # Run with: cargo bench --features bench-polars
 bench-polars = ["dep:polars"]
 
 [dependencies]
-vertexrs-macro    = { path = "../vertexrs-macro" }
-arrow-buffer      = { workspace = true }
-arrow-array       = { workspace = true }
-half              = { workspace = true }
-roaring           = { workspace = true }
+vertexrs-macro = { workspace = true }
+arrow-buffer = { workspace = true }
+arrow-array = { workspace = true }
+half = { workspace = true }
+roaring = { workspace = true }
 tikv-jemallocator = { workspace = true, optional = true }
 # Optional: only compiled when bench-polars feature is enabled
-polars            = { workspace = true, optional = true }
+polars = { workspace = true, optional = true }
 
 [dev-dependencies]
 criterion = { workspace = true }
 
 [[bench]]
-name    = "column"
+name = "column"
 harness = false
 
 [[bench]]
-name    = "pipeline"
+name = "pipeline"
 harness = false
 
 [[bench]]
-name    = "incremental"
+name = "incremental"
 harness = false

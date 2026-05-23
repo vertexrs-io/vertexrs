@@ -1,12 +1,18 @@
 [package]
-name    = "vertexrs-macro"
-version = "0.1.0"
-edition = "2024"
+name = "vertexrs-macro"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Procedural macros for the vertexrs incremental computation engine"
+keywords = ["incremental", "dag", "pipeline", "proc-macro"]
+categories = ["data-structures", "development-tools::procedural-macro-helpers"]
+exclude = [".github/**"]
 
 [lib]
 proc-macro = true
 
 [dependencies]
 proc-macro2 = { workspace = true }
-quote       = { workspace = true }
-syn         = { workspace = true }
+quote = { workspace = true }
+syn = { workspace = true }
