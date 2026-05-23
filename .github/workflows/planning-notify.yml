@@ -1,0 +1,47 @@
+name: Notify ScrumMaster on planning PR
+
+on:
+  pull_request:
+    types: [opened, reopened]
+    branches:
+      - planning
+
+env:
+  COPILOT_MODEL: claude-sonnet-4.6
+
+jobs:
+  scrum-master:
+    # Only fires for plan/* → planning PRs
+    if: startsWith(github.head_ref, 'plan/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: planning
+          fetch-depth: 0
+
+      - name: Install Copilot CLI
+        run: npm install -g @github/copilot
+
+      - name: Run ScrumMaster agent
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          copilot \
+            --agent scrum-master \
+            --model $COPILOT_MODEL \
+            --prompt "Process the plan diff in PR #${PR_NUMBER} (${PR_URL}/files). \
+              Follow the full ScrumMaster workflow: read the diff, skip any checkboxes \
+              already annotated with <!-- #N -->, create GitHub issues for each ready \
+              item, and commit issue number annotations back to docs/plans/main.md on \
+              the planning branch." \
+            --no-ask-user \
+            --allow-all-tools

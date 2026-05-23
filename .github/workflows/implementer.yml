@@ -1,0 +1,56 @@
+name: Run Implementer agent
+
+on:
+  issues:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Issue number to implement
+        required: true
+        type: number
+
+env:
+  COPILOT_MODEL: claude-sonnet-4.6
+
+jobs:
+  implement:
+    # Label trigger: only fire on the 'ready' label
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'ready'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Install Copilot CLI
+        run: npm install -g @github/copilot
+
+      - name: Run Implementer agent
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event_name == 'workflow_dispatch' && inputs.issue_number || github.event.issue.number }}
+        run: |
+          copilot \
+            --agent implementer \
+            --model $COPILOT_MODEL \
+            --prompt "Implement GitHub issue #${ISSUE_NUMBER}. \
+              Follow the full Implementer workflow from .github/agents/implementer.agent.md: \
+              read the issue, check relevant ADRs in docs/adr/, create a feature branch \
+              from main named feat/<issue-slug>, implement the acceptance criteria, \
+              run cargo make ci and fix every failure, then open a PR to main. \
+              Do not skip the CI gate. Do not merge the PR." \
+            --no-ask-user \
+            --allow-all-tools

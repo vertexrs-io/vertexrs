@@ -1,0 +1,106 @@
+name: Sync planning branch from main
+
+on:
+  pull_request:
+    types: [opened, reopened]
+    branches:
+      - planning
+  workflow_dispatch:
+
+env:
+  COPILOT_MODEL: claude-sonnet-4.6
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout planning branch
+        uses: actions/checkout@v4
+        with:
+          ref: planning
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Attempt merge of main into planning
+        id: merge
+        run: |
+          git fetch origin main
+          if git merge --no-edit origin/main; then
+            echo "result=clean" >> "$GITHUB_OUTPUT"
+          else
+            echo "result=conflict" >> "$GITHUB_OUTPUT"
+            git merge --abort
+          fi
+
+      - name: Push if merge was clean
+        if: steps.merge.outputs.result == 'clean'
+        run: git push origin planning
+
+      - name: Install Copilot CLI and attempt AI conflict resolution
+        if: steps.merge.outputs.result == 'conflict'
+        run: npm install -g @github/copilot
+
+      - name: Resolve conflict with Copilot
+        if: steps.merge.outputs.result == 'conflict'
+        id: resolve
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git merge --no-edit origin/main || true
+          copilot \
+            --model $COPILOT_MODEL \
+            --prompt "Resolve the git merge conflicts in the working tree. \
+              This is a merge of main into the planning branch. \
+              The only file that should have conflicts is docs/plans/main.md. \
+              Preserve all content from both sides — do not discard any checkboxes, \
+              issue annotations, or plan text. Once resolved, stage the file and \
+              complete the merge commit." \
+            --no-ask-user \
+            --allow-all-tools
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "resolved=false" >> "$GITHUB_OUTPUT"
+          else
+            git commit --no-edit || git commit -m "chore: merge main into planning (AI-resolved conflict)"
+            echo "resolved=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Push if AI resolved conflict
+        if: steps.merge.outputs.result == 'conflict' && steps.resolve.outputs.resolved == 'true'
+        run: git push origin planning
+
+      - name: Open conflict-resolution PR if AI could not resolve
+        if: steps.merge.outputs.result == 'conflict' && steps.resolve.outputs.resolved == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: prs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              head: `${context.repo.owner}:main`,
+              base: 'planning',
+            });
+            if (prs.length === 0) {
+              await github.rest.pulls.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: 'chore: sync main into planning (conflict — manual resolution required)',
+                head: 'main',
+                base: 'planning',
+                body: [
+                  'Automated sync of `main` into `planning` failed due to a merge conflict.',
+                  'Copilot was unable to resolve it automatically.',
+                  '',
+                  'Please resolve the conflict and merge this PR to keep the planning branch up to date.',
+                ].join('\n'),
+              });
+            }
