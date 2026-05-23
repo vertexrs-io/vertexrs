@@ -1,7 +1,8 @@
 name: Bench
 
-# Only runs on PRs targeting main (expensive) and after merges to main (to save
-# the updated baseline). Not triggered for PRs targeting other branches.
+# Runs on PRs targeting main (compares against last main baseline) and after
+# merges to main (saves the updated baseline). Not triggered for PRs targeting
+# other branches.
 
 on:
   push:
@@ -37,12 +38,11 @@ jobs:
           key: bench-baseline-main-${{ github.sha }}
           restore-keys: bench-baseline-main-
 
-      # PRs: run benchmarks (stores results as the default "new" run)
+      # PRs: run benchmarks then compare against main baseline
       - name: Run benchmarks
         if: github.event_name == 'pull_request'
         run: cargo make bench
 
-      # PRs: compare against main baseline; skip gracefully if no baseline exists yet
       - name: Compare against baseline
         if: github.event_name == 'pull_request' && steps.restore-baseline.outputs.cache-matched-key != ''
         run: cargo make bench-cmp
