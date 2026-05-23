@@ -1,0 +1,59 @@
+name: Bench
+
+# Only runs on PRs targeting main (expensive) and after merges to main (to save
+# the updated baseline). Not triggered for PRs targeting other branches.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  bench:
+    name: Bench
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-make,critcmp
+
+      # PRs: restore the saved main baseline so critcmp has something to compare against
+      - name: Restore bench baseline
+        id: restore-baseline
+        if: github.event_name == 'pull_request'
+        uses: actions/cache/restore@v4
+        with:
+          path: target/criterion
+          key: bench-baseline-main
+
+      # PRs: run benchmarks (stores results as the default "new" run)
+      - name: Run benchmarks
+        if: github.event_name == 'pull_request'
+        run: cargo make bench
+
+      # PRs: compare against main baseline; skip gracefully if no baseline exists yet
+      - name: Compare against baseline
+        if: github.event_name == 'pull_request' && steps.restore-baseline.outputs.cache-hit == 'true'
+        run: cargo make bench-cmp
+
+      # main merges: run benchmarks and save results as the new "main" baseline
+      - name: Run benchmarks and save baseline
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: cargo make bench-save
+
+      - name: Cache bench baseline
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: actions/cache/save@v4
+        with:
+          path: target/criterion
+          key: bench-baseline-main
