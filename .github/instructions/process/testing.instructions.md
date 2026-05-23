@@ -27,7 +27,7 @@ PRs that drop coverage below 90% must include written justification in the PR bo
 
 - Tests must be deterministic — no timing dependencies, no random seeds without a fixed value
 - Use `assert_eq!` or `assert!(matches!(...))` with exact expected values
-- Never `unwrap()` in test assertions — use explicit comparison
+- Prefer explicit assertions over `unwrap()` when the `Result`/`Option` outcome is the behavior under test. In test setup, fixtures, and benchmark scaffolding, `unwrap()` is acceptable when failure should immediately fail the test; prefer `expect()` when a clearer failure message would help.
 - Benchmarks with a Polars equivalent **must** include a `#[test]` correctness assertion: `abs(vtx − polars) < 1e-6` for f32/f64; exact equality for integers; f16 widened to f32 before comparison
 
 ## Adding a new benchmark file
