@@ -19,7 +19,7 @@ PRs that drop coverage below 90% must include written justification in the PR bo
 | Type | When required | Where |
 |---|---|---|
 | Unit | All non-trivial functions | `#[cfg(test)]` module in the same file |
-| Integration | New pipeline behaviours, macro-generated code paths | `vertexrs/src/lib.rs` test module |
+| Integration | New pipeline behaviours, macro-generated code paths | `vertexrs/tests/` |
 | Doctests | All public API items with a runnable example | Inline in `///` doc comments |
 | Benchmarks | Critical paths and hot recompute paths | `vertexrs/benches/` via `criterion` |
 
