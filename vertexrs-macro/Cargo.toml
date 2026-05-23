@@ -7,7 +7,9 @@ repository.workspace = true
 description = "Procedural macros for the vertexrs incremental computation engine"
 keywords = ["incremental", "dag", "pipeline", "proc-macro"]
 categories = ["data-structures", "development-tools::procedural-macro-helpers"]
-exclude = [".github/**"]
+
+[lints]
+workspace = true
 
 [lib]
 proc-macro = true

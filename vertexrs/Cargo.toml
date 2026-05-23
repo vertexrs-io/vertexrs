@@ -7,7 +7,9 @@ repository.workspace = true
 description = "High-performance incremental computation engine with compile-time DAG pipelines"
 keywords = ["incremental", "dag", "pipeline", "dataframe", "streaming"]
 categories = ["data-structures", "algorithms", "science"]
-exclude = [".github/**"]
+
+[lints]
+workspace = true
 
 [features]
 default = []
