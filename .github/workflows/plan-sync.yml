@@ -1,0 +1,70 @@
+name: Sync plan on issue close
+
+# When an issue is closed (PR merged or manually closed), find its <!-- #N -->
+# annotation in the plan and mark the corresponding checkbox complete.
+
+on:
+  issues:
+    types: [closed]
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: planning
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Mark checkbox complete in plan
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          # Python script stored in env to avoid heredoc column-0 YAML conflict.
+          PLAN_SCRIPT: |
+            import os, re, glob
+            issue = os.environ["ISSUE_NUMBER"]
+            pattern = re.compile(
+                r"^(- )\[ \]( .*<!-- #" + re.escape(issue) + r" -->)",
+                flags=re.MULTILINE,
+            )
+            for plan_path in glob.glob("docs/plans/**/*.md", recursive=True):
+                with open(plan_path, "r") as f:
+                    content = f.read()
+                updated = pattern.sub(r"\1[x]\2", content)
+                if updated != content:
+                    with open(plan_path, "w") as f:
+                        f.write(updated)
+                    print(f"Marked issue #{issue} complete in {plan_path}")
+                    break
+            else:
+                print(f"Checkbox for issue #{issue} was already checked or pattern did not match.")
+        run: |
+          # Check if this issue is annotated anywhere under docs/plans/
+          if ! grep -rqF "<!-- #${ISSUE_NUMBER} -->" docs/plans/; then
+            echo "Issue #${ISSUE_NUMBER} ('${ISSUE_TITLE}') has no annotation in any plan file — nothing to update."
+            exit 0
+          fi
+
+          # Replace `- [ ] ...<!-- #N -->` with `- [x] ...<!-- #N -->` in whichever file carries the annotation.
+          python3 <<< "$PLAN_SCRIPT"
+
+      - name: Commit if changed
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          if git diff --quiet docs/plans/; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git add docs/plans/
+          git commit -m "plan: mark issue #${ISSUE_NUMBER} complete"
+          git push origin planning

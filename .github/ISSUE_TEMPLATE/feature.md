@@ -7,7 +7,7 @@ labels: ["enhancement"]
 
 ## Phase Reference
 
-<!-- Link to the relevant checkbox in docs/plans/main.md, e.g.: -->
+<!-- Link to the relevant checkbox in docs/plans/phase-XX-*.md, e.g.: -->
 <!-- Phase 2.1 — Multi-threaded Rayon executor -->
 
 ## Summary

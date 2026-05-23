@@ -8,7 +8,7 @@ description: "How to decompose a plan phase into GitHub issues. Apply when plann
 
 Ask the following questions and wait for answers before proceeding:
 
-1. Which phase of `docs/plans/main.md` is the current focus? Confirm the most recent incomplete checkbox.
+1. Which phase of the build plan is the current focus? Read `docs/plans/main.md` (the index) to find the phase, then open the relevant `docs/plans/phase-XX-*.md` file. Confirm the most recent incomplete checkbox.
 2. Are there already open issues covering this work? Run a search before creating duplicates.
 3. Is the scope unambiguous enough to write concrete acceptance criteria? If not, resolve the ambiguity first.
 4. Does the work touch both repos (`vertexrs` and `vertexrs-internal`)? If so, raise separate issues per repo.
@@ -27,7 +27,7 @@ Each issue must be implementable in a single PR:
 
 Every issue must include these sections (use the feature issue template):
 
-1. **Phase reference** — link to the relevant checkbox in `docs/plans/main.md`
+1. **Phase reference** — link to the relevant checkbox in the appropriate `docs/plans/phase-XX-*.md` file
 2. **Summary** — one paragraph; what this implements and why it matters
 3. **Acceptance criteria** — testable bullet points checkable by CI or code review; minimum three criteria
 4. **Affected crates** — `vertexrs`, `vertexrs-macro`, or both
