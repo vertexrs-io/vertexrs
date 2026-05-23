@@ -2,10 +2,10 @@ use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::quote;
 use syn::{
+    Expr, ExprClosure, ExprPath, Ident, Pat, ReturnType, Token, Type,
     parse::{Parse, ParseStream},
     parse_macro_input,
     visit::Visit,
-    Expr, ExprClosure, ExprPath, Ident, Pat, ReturnType, Token, Type,
 };
 
 // ── Input parsing ─────────────────────────────────────────────────────────────
@@ -41,7 +41,9 @@ struct NodeCall<'a> {
 /// Extracts the `receiver`, mode, and closure from a top-level method-call
 /// expression.  Returns `None` if the expression does not match the pattern.
 fn extract_node_call(expr: &Expr) -> Option<NodeCall<'_>> {
-    let Expr::MethodCall(call) = expr else { return None };
+    let Expr::MethodCall(call) = expr else {
+        return None;
+    };
     let mode = match call.method.to_string().as_str() {
         "row" => AccessMode::Row,
         "col" => AccessMode::Col,
@@ -50,15 +52,30 @@ fn extract_node_call(expr: &Expr) -> Option<NodeCall<'_>> {
     if call.args.len() != 1 {
         return None;
     }
-    let Expr::Closure(closure) = &call.args[0] else { return None };
-    Some(NodeCall { receiver: &call.receiver, mode, closure })
+    let Expr::Closure(closure) = &call.args[0] else {
+        return None;
+    };
+    Some(NodeCall {
+        receiver: &call.receiver,
+        mode,
+        closure,
+    })
 }
 
 /// Extracts the single identifier from a receiver expression, e.g. `price` from
 /// `price`.  Returns `None` for complex receivers.
 fn receiver_ident(expr: &Expr) -> Option<&Ident> {
-    let Expr::Path(ExprPath { qself: None, path, .. }) = expr else { return None };
-    if path.segments.len() == 1 { Some(&path.segments[0].ident) } else { None }
+    let Expr::Path(ExprPath {
+        qself: None, path, ..
+    }) = expr
+    else {
+        return None;
+    };
+    if path.segments.len() == 1 {
+        Some(&path.segments[0].ident)
+    } else {
+        None
+    }
 }
 
 /// Returns `(ident, type_annotation)` for each closure argument.
@@ -145,13 +162,13 @@ fn is_bool_return(closure: &ExprClosure) -> bool {
 /// ```
 ///
 /// **Row mode** — element-wise kernel lifted across the column:
-/// ```ignore
+/// ```text
 /// node!(tax   = price.row(|x| x * 0.2));
 /// node!(total = price.row(|x| x + tax));   // `tax` is another node
 /// ```
 ///
 /// **Col mode** — whole-column operation (may change length):
-/// ```ignore
+/// ```text
 /// node!(sorted   = price.col(|c| c.sort()));
 /// node!(filtered = price.col(|c| c.filter(|x| *x > 0.0)));
 /// node!(tax_on_sorted = sorted.row(|x| x * 0.2));  // resumes after col op
@@ -165,7 +182,12 @@ pub fn node(input: TokenStream) -> TokenStream {
     let node_name = name.to_string();
     let name_lit = syn::LitStr::new(&node_name, Span::call_site());
 
-    let Some(NodeCall { receiver, mode, closure }) = extract_node_call(&expr) else {
+    let Some(NodeCall {
+        receiver,
+        mode,
+        closure,
+    }) = extract_node_call(&expr)
+    else {
         return syn::Error::new_spanned(
             &expr,
             "node! expects `name = source.row(|x| expr)` or `name = source.col(|c| expr)`",
@@ -455,13 +477,16 @@ fn try_parse_settings(input: syn::parse::ParseStream) -> syn::Result<FailureMode
             syn::braced!(settings_inner in input);
             let key: Ident = settings_inner.parse()?;
             if key != "failure" {
-                return Err(syn::Error::new(key.span(), "expected `failure` key in settings block"));
+                return Err(syn::Error::new(
+                    key.span(),
+                    "expected `failure` key in settings block",
+                ));
             }
             settings_inner.parse::<Token![:]>()?;
             let mode: Ident = settings_inner.parse()?;
             return match mode.to_string().as_str() {
-                "Soft"    => Ok(FailureModeKind::Soft),
-                "Hard"    => Ok(FailureModeKind::Hard),
+                "Soft" => Ok(FailureModeKind::Soft),
+                "Hard" => Ok(FailureModeKind::Hard),
                 "Isolate" => Ok(FailureModeKind::Isolate),
                 other => Err(syn::Error::new(
                     mode.span(),
@@ -491,9 +516,13 @@ impl Parse for PipelineDef {
                         content.parse::<Token![:]>()?;
                         let ty: Type = content.parse()?;
                         items.push(PipelineItem::Source(Box::new(PipelineSource { name, ty })));
-                        if content.is_empty() { break; }
+                        if content.is_empty() {
+                            break;
+                        }
                         content.parse::<Token![,]>()?;
-                        if content.is_empty() { break; } // trailing comma
+                        if content.is_empty() {
+                            break;
+                        } // trailing comma
                     }
                 }
                 "node" => {
@@ -504,7 +533,9 @@ impl Parse for PipelineDef {
                     let mut names = Vec::new();
                     while !content.is_empty() {
                         names.push(content.parse::<Ident>()?);
-                        if content.is_empty() { break; }
+                        if content.is_empty() {
+                            break;
+                        }
                         content.parse::<Token![,]>()?;
                     }
                     items.push(PipelineItem::Output(names));
@@ -517,7 +548,11 @@ impl Parse for PipelineDef {
                     let failure_mode = try_parse_settings(&inner)?;
                     let inner_tokens: proc_macro2::TokenStream = inner.parse()?;
                     items.push(PipelineItem::Ordered(OrderedItem::Nested(Box::new(
-                        NestedPipelineItem { name, failure_mode, inner_tokens },
+                        NestedPipelineItem {
+                            name,
+                            failure_mode,
+                            inner_tokens,
+                        },
                     ))));
                 }
                 // ── External sub-pipeline: sub!(expr => name: type, ...) ──────────────
@@ -530,13 +565,18 @@ impl Parse for PipelineDef {
                         content.parse::<Token![:]>()?;
                         let out_ty: Type = content.parse()?;
                         outputs.push((out_name, out_ty));
-                        if content.is_empty() { break; }
+                        if content.is_empty() {
+                            break;
+                        }
                         content.parse::<Token![,]>()?;
-                        if content.is_empty() { break; } // trailing comma
+                        if content.is_empty() {
+                            break;
+                        } // trailing comma
                     }
-                    items.push(PipelineItem::Ordered(OrderedItem::Sub(Box::new(
-                        SubItem { expr, outputs },
-                    ))));
+                    items.push(PipelineItem::Ordered(OrderedItem::Sub(Box::new(SubItem {
+                        expr,
+                        outputs,
+                    }))));
                 }
                 other => {
                     return Err(syn::Error::new(
@@ -683,8 +723,7 @@ pub fn pipeline(input: TokenStream) -> TokenStream {
 
             // ── sub!(expr => out: T, ...) — external sub-pipeline ─────────────
             OrderedItem::Sub(s) => {
-                let field_name =
-                    Ident::new(&format!("__sub_{sub_idx}"), Span::call_site());
+                let field_name = Ident::new(&format!("__sub_{sub_idx}"), Span::call_site());
                 sub_idx += 1;
                 let expr = &s.expr;
 

@@ -90,7 +90,11 @@ pub struct PipelineSettings {
 
 impl Default for PipelineSettings {
     fn default() -> Self {
-        Self { failure_mode: FailureMode::Soft, na_threshold: 0.5, purity_check: false }
+        Self {
+            failure_mode: FailureMode::Soft,
+            na_threshold: 0.5,
+            purity_check: false,
+        }
     }
 }
 
@@ -135,8 +139,8 @@ pub trait PipelineImpl: Send {
 /// subset of those nodes as an output [`Frame`].
 ///
 /// # Example
-/// ```rust,ignore
-/// use vertexrs::{Frame, Node, pipeline};
+/// ```rust
+/// use vertexrs::{Frame, Node, node, pipeline};
 ///
 /// let mut p = pipeline! {
 ///     source!(price: f64);
@@ -145,7 +149,8 @@ pub trait PipelineImpl: Send {
 ///     output!(tax, total)
 /// };
 ///
-/// p.push(Frame::new().append(Node::from_data("price", vec![10.0_f64, 20.0])));
+/// let frame = Frame::new().append(Node::from_data("price", vec![10.0_f64, 20.0]));
+/// p.push(&frame);
 /// p.compute().unwrap();
 /// assert_eq!(p.output().get::<f64>("total").unwrap(), &[12.0, 24.0]);
 /// ```
@@ -161,7 +166,10 @@ impl Pipeline {
     /// Called by the [`pipeline!`] macro; do not call this directly.
     #[doc(hidden)]
     pub fn new(inner: Box<dyn PipelineImpl>) -> Self {
-        Self { inner, isolated_errors: Vec::new() }
+        Self {
+            inner,
+            isolated_errors: Vec::new(),
+        }
     }
 
     /// Copies source columns from `frame` into the pipeline.
@@ -181,7 +189,8 @@ impl Pipeline {
     pub fn compute(&mut self) -> Result<(), PipelineError> {
         self.isolated_errors.clear();
         let result = self.inner.run();
-        self.isolated_errors.extend(self.inner.drain_isolated_errors());
+        self.isolated_errors
+            .extend(self.inner.drain_isolated_errors());
         result
     }
 

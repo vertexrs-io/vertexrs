@@ -56,16 +56,28 @@ mod pipeline_ratio {
     // ── Frame builders ────────────────────────────────────────────────────────
 
     fn make_frame_f64(n: usize) -> Frame {
-        Frame::new().append(Node::from_data("price", (1..=n).map(|i| i as f64).collect::<Vec<_>>()))
+        Frame::new().append(Node::from_data(
+            "price",
+            (1..=n).map(|i| i as f64).collect::<Vec<_>>(),
+        ))
     }
     fn make_frame_f32(n: usize) -> Frame {
-        Frame::new().append(Node::from_data("price", (1..=n).map(|i| i as f32).collect::<Vec<_>>()))
+        Frame::new().append(Node::from_data(
+            "price",
+            (1..=n).map(|i| i as f32).collect::<Vec<_>>(),
+        ))
     }
     fn make_frame_i64(n: usize) -> Frame {
-        Frame::new().append(Node::from_data("price", (1..=n).map(|i| (i % 1000) as i64).collect::<Vec<_>>()))
+        Frame::new().append(Node::from_data(
+            "price",
+            (1..=n).map(|i| (i % 1000) as i64).collect::<Vec<_>>(),
+        ))
     }
     fn make_frame_i32(n: usize) -> Frame {
-        Frame::new().append(Node::from_data("price", (1..=n).map(|i| (i % 1000) as i32).collect::<Vec<_>>()))
+        Frame::new().append(Node::from_data(
+            "price",
+            (1..=n).map(|i| (i % 1000) as i32).collect::<Vec<_>>(),
+        ))
     }
 
     // ── vertexrs pipeline runners ─────────────────────────────────────────────
@@ -122,36 +134,44 @@ mod pipeline_ratio {
     use polars::prelude::*;
 
     fn polars_f64(prices: &[f64]) {
-        df! { "price" => prices }.unwrap()
+        df! { "price" => prices }
+            .unwrap()
             .lazy()
             .with_column((col("price") * lit(0.1_f64)).alias("tax"))
             .with_column((col("price") + col("tax")).alias("total"))
             .with_column((col("total") * lit(0.9_f64)).alias("net"))
-            .collect().unwrap();
+            .collect()
+            .unwrap();
     }
     fn polars_f32(prices: &[f32]) {
-        df! { "price" => prices }.unwrap()
+        df! { "price" => prices }
+            .unwrap()
             .lazy()
             .with_column((col("price") * lit(0.1_f32)).alias("tax"))
             .with_column((col("price") + col("tax")).alias("total"))
             .with_column((col("total") * lit(0.9_f32)).alias("net"))
-            .collect().unwrap();
+            .collect()
+            .unwrap();
     }
     fn polars_i64(prices: &[i64]) {
-        df! { "price" => prices }.unwrap()
+        df! { "price" => prices }
+            .unwrap()
             .lazy()
             .with_column((col("price") / lit(10_i64)).alias("tax"))
             .with_column((col("price") + col("tax")).alias("total"))
             .with_column((col("total") - col("total") / lit(10_i64)).alias("net"))
-            .collect().unwrap();
+            .collect()
+            .unwrap();
     }
     fn polars_i32(prices: &[i32]) {
-        df! { "price" => prices }.unwrap()
+        df! { "price" => prices }
+            .unwrap()
             .lazy()
             .with_column((col("price") / lit(10_i32)).alias("tax"))
             .with_column((col("price") + col("tax")).alias("total"))
             .with_column((col("total") - col("total") / lit(10_i32)).alias("net"))
-            .collect().unwrap();
+            .collect()
+            .unwrap();
     }
 
     // ── Tests ─────────────────────────────────────────────────────────────────

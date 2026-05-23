@@ -23,8 +23,7 @@ pub use pipeline::{FailureMode, Pipeline, PipelineError, PipelineSettings};
 use arrow_array::{
     Array, ArrowPrimitiveType, BooleanArray, PrimitiveArray, StringArray,
     types::{
-        Float16Type, Float32Type, Float64Type,
-        Int8Type, Int16Type, Int32Type, Int64Type,
+        Float16Type, Float32Type, Float64Type, Int8Type, Int16Type, Int32Type, Int64Type,
         UInt8Type, UInt16Type, UInt32Type, UInt64Type,
     },
 };
@@ -57,7 +56,11 @@ pub struct BoolNode {
 impl BoolNode {
     /// Creates a source boolean node from a `Vec<bool>` with no upstream dependencies.
     pub fn from_data(name: &'static str, data: Vec<bool>) -> Self {
-        Self { name, deps: &[], data: BooleanArray::from(data) }
+        Self {
+            name,
+            deps: &[],
+            data: BooleanArray::from(data),
+        }
     }
 
     /// Creates a derived boolean node with an explicit dependency list.
@@ -68,7 +71,11 @@ impl BoolNode {
         deps: &'static [&'static str],
         data: Vec<bool>,
     ) -> Self {
-        Self { name, deps, data: BooleanArray::from(data) }
+        Self {
+            name,
+            deps,
+            data: BooleanArray::from(data),
+        }
     }
 
     /// Returns the boolean value at the given row index.
@@ -119,7 +126,11 @@ impl StringNode {
     /// upstream dependencies.
     pub fn from_data(name: &'static str, data: &[&str]) -> Self {
         let array: StringArray = data.iter().map(|&s| Some(s)).collect();
-        Self { name, deps: &[], data: array }
+        Self {
+            name,
+            deps: &[],
+            data: array,
+        }
     }
 
     /// Creates a derived string node with an explicit dependency list.
@@ -131,7 +142,11 @@ impl StringNode {
         data: Vec<String>,
     ) -> Self {
         let array: StringArray = data.iter().map(|s| Some(s.as_str())).collect();
-        Self { name, deps, data: array }
+        Self {
+            name,
+            deps,
+            data: array,
+        }
     }
 
     /// Borrows the string value at the given row index.
@@ -157,8 +172,6 @@ impl StringNode {
         (0..self.len()).map(|i| self.data.value(i)).collect()
     }
 }
-
-
 
 mod private {
     pub trait Sealed {}
@@ -417,16 +430,16 @@ impl AnyNode {
             AnyNode::F16(n) => n.name,
             AnyNode::F32(n) => n.name,
             AnyNode::F64(n) => n.name,
-            AnyNode::I8(n)  => n.name,
+            AnyNode::I8(n) => n.name,
             AnyNode::I16(n) => n.name,
             AnyNode::I32(n) => n.name,
             AnyNode::I64(n) => n.name,
-            AnyNode::U8(n)  => n.name,
+            AnyNode::U8(n) => n.name,
             AnyNode::U16(n) => n.name,
             AnyNode::U32(n) => n.name,
             AnyNode::U64(n) => n.name,
             AnyNode::Bool(n) => n.name,
-            AnyNode::Str(n)  => n.name,
+            AnyNode::Str(n) => n.name,
         }
     }
 
@@ -436,16 +449,16 @@ impl AnyNode {
             AnyNode::F16(n) => n.len(),
             AnyNode::F32(n) => n.len(),
             AnyNode::F64(n) => n.len(),
-            AnyNode::I8(n)  => n.len(),
+            AnyNode::I8(n) => n.len(),
             AnyNode::I16(n) => n.len(),
             AnyNode::I32(n) => n.len(),
             AnyNode::I64(n) => n.len(),
-            AnyNode::U8(n)  => n.len(),
+            AnyNode::U8(n) => n.len(),
             AnyNode::U16(n) => n.len(),
             AnyNode::U32(n) => n.len(),
             AnyNode::U64(n) => n.len(),
             AnyNode::Bool(n) => n.len(),
-            AnyNode::Str(n)  => n.len(),
+            AnyNode::Str(n) => n.len(),
         }
     }
 
@@ -457,36 +470,88 @@ impl AnyNode {
     /// The name of the native type stored in this column (e.g. `"f64"`, `"bool"`, `"str"`).
     pub fn data_type(&self) -> &'static str {
         match self {
-            AnyNode::F16(_)  => "f16",
-            AnyNode::F32(_)  => "f32",
-            AnyNode::F64(_)  => "f64",
-            AnyNode::I8(_)   => "i8",
-            AnyNode::I16(_)  => "i16",
-            AnyNode::I32(_)  => "i32",
-            AnyNode::I64(_)  => "i64",
-            AnyNode::U8(_)   => "u8",
-            AnyNode::U16(_)  => "u16",
-            AnyNode::U32(_)  => "u32",
-            AnyNode::U64(_)  => "u64",
+            AnyNode::F16(_) => "f16",
+            AnyNode::F32(_) => "f32",
+            AnyNode::F64(_) => "f64",
+            AnyNode::I8(_) => "i8",
+            AnyNode::I16(_) => "i16",
+            AnyNode::I32(_) => "i32",
+            AnyNode::I64(_) => "i64",
+            AnyNode::U8(_) => "u8",
+            AnyNode::U16(_) => "u16",
+            AnyNode::U32(_) => "u32",
+            AnyNode::U64(_) => "u64",
             AnyNode::Bool(_) => "bool",
-            AnyNode::Str(_)  => "str",
+            AnyNode::Str(_) => "str",
         }
     }
 }
 
-impl From<Node<f16>> for AnyNode { fn from(n: Node<f16>) -> Self { AnyNode::F16(n) } }
-impl From<Node<f32>> for AnyNode { fn from(n: Node<f32>) -> Self { AnyNode::F32(n) } }
-impl From<Node<f64>> for AnyNode { fn from(n: Node<f64>) -> Self { AnyNode::F64(n) } }
-impl From<Node<i8>>  for AnyNode { fn from(n: Node<i8>)  -> Self { AnyNode::I8(n)  } }
-impl From<Node<i16>> for AnyNode { fn from(n: Node<i16>) -> Self { AnyNode::I16(n) } }
-impl From<Node<i32>> for AnyNode { fn from(n: Node<i32>) -> Self { AnyNode::I32(n) } }
-impl From<Node<i64>> for AnyNode { fn from(n: Node<i64>) -> Self { AnyNode::I64(n) } }
-impl From<Node<u8>>  for AnyNode { fn from(n: Node<u8>)  -> Self { AnyNode::U8(n)  } }
-impl From<Node<u16>> for AnyNode { fn from(n: Node<u16>) -> Self { AnyNode::U16(n) } }
-impl From<Node<u32>> for AnyNode { fn from(n: Node<u32>) -> Self { AnyNode::U32(n) } }
-impl From<Node<u64>> for AnyNode { fn from(n: Node<u64>) -> Self { AnyNode::U64(n) } }
-impl From<BoolNode>   for AnyNode { fn from(n: BoolNode)   -> Self { AnyNode::Bool(n) } }
-impl From<StringNode> for AnyNode { fn from(n: StringNode) -> Self { AnyNode::Str(n)  } }
+impl From<Node<f16>> for AnyNode {
+    fn from(n: Node<f16>) -> Self {
+        AnyNode::F16(n)
+    }
+}
+impl From<Node<f32>> for AnyNode {
+    fn from(n: Node<f32>) -> Self {
+        AnyNode::F32(n)
+    }
+}
+impl From<Node<f64>> for AnyNode {
+    fn from(n: Node<f64>) -> Self {
+        AnyNode::F64(n)
+    }
+}
+impl From<Node<i8>> for AnyNode {
+    fn from(n: Node<i8>) -> Self {
+        AnyNode::I8(n)
+    }
+}
+impl From<Node<i16>> for AnyNode {
+    fn from(n: Node<i16>) -> Self {
+        AnyNode::I16(n)
+    }
+}
+impl From<Node<i32>> for AnyNode {
+    fn from(n: Node<i32>) -> Self {
+        AnyNode::I32(n)
+    }
+}
+impl From<Node<i64>> for AnyNode {
+    fn from(n: Node<i64>) -> Self {
+        AnyNode::I64(n)
+    }
+}
+impl From<Node<u8>> for AnyNode {
+    fn from(n: Node<u8>) -> Self {
+        AnyNode::U8(n)
+    }
+}
+impl From<Node<u16>> for AnyNode {
+    fn from(n: Node<u16>) -> Self {
+        AnyNode::U16(n)
+    }
+}
+impl From<Node<u32>> for AnyNode {
+    fn from(n: Node<u32>) -> Self {
+        AnyNode::U32(n)
+    }
+}
+impl From<Node<u64>> for AnyNode {
+    fn from(n: Node<u64>) -> Self {
+        AnyNode::U64(n)
+    }
+}
+impl From<BoolNode> for AnyNode {
+    fn from(n: BoolNode) -> Self {
+        AnyNode::Bool(n)
+    }
+}
+impl From<StringNode> for AnyNode {
+    fn from(n: StringNode) -> Self {
+        AnyNode::Str(n)
+    }
+}
 
 // ── Frame ─────────────────────────────────────────────────────────────────────
 
@@ -558,7 +623,11 @@ impl Frame {
     pub fn get_bool(&self, name: &str) -> Option<&BoolNode> {
         self.columns.iter().find_map(|(n, any)| {
             if n == name {
-                if let AnyNode::Bool(b) = any { Some(b) } else { None }
+                if let AnyNode::Bool(b) = any {
+                    Some(b)
+                } else {
+                    None
+                }
             } else {
                 None
             }
@@ -571,7 +640,11 @@ impl Frame {
     pub fn get_str(&self, name: &str) -> Option<&StringNode> {
         self.columns.iter().find_map(|(n, any)| {
             if n == name {
-                if let AnyNode::Str(s) = any { Some(s) } else { None }
+                if let AnyNode::Str(s) = any {
+                    Some(s)
+                } else {
+                    None
+                }
             } else {
                 None
             }
@@ -746,9 +819,16 @@ mod tests {
         // so it should appear in the deps array.
         let values = Node::from_data("values", vec![1.0_f64, 2.0, 3.0, 4.0]);
         let weights = Node::from_data("weights", vec![10.0_f64, 20.0, 30.0, 40.0]);
-        node!(combined = values.col(|col_v| {
-            col_v.data.iter().zip(weights.data.iter()).map(|(&a, &b)| a + b).collect::<Vec<_>>()
-        }));
+        node!(
+            combined = values.col(|col_v| {
+                col_v
+                    .data
+                    .iter()
+                    .zip(weights.data.iter())
+                    .map(|(&a, &b)| a + b)
+                    .collect::<Vec<_>>()
+            })
+        );
         assert_eq!(combined.values(), [11.0, 22.0, 33.0, 44.0]);
         assert!(combined.deps.contains(&"values"));
         assert!(combined.deps.contains(&"weights"));
@@ -881,8 +961,7 @@ mod tests {
 
     #[test]
     fn macro_frame_col_typed() {
-        let frame = Frame::new()
-            .append(Node::from_data("price", vec![3.0_f64, 1.0, 2.0]));
+        let frame = Frame::new().append(Node::from_data("price", vec![3.0_f64, 1.0, 2.0]));
         node!(sorted = frame.col(|price: f64| price.sort()));
         assert_eq!(sorted.values(), [1.0, 2.0, 3.0]);
         assert_eq!(sorted.deps, &["price"]);
@@ -892,8 +971,7 @@ mod tests {
 
     #[test]
     fn pipeline_basic_round_trip() {
-        let frame = Frame::new()
-            .append(Node::from_data("price", vec![10.0_f64, 20.0, 30.0]));
+        let frame = Frame::new().append(Node::from_data("price", vec![10.0_f64, 20.0, 30.0]));
 
         let mut p = pipeline! {
             source!(price: f64);
@@ -931,8 +1009,7 @@ mod tests {
 
     #[test]
     fn pipeline_output_is_only_declared_columns() {
-        let frame = Frame::new()
-            .append(Node::from_data("x", vec![1.0_f64, 2.0]));
+        let frame = Frame::new().append(Node::from_data("x", vec![1.0_f64, 2.0]));
 
         let mut p = pipeline! {
             source!(x: f64);
@@ -966,10 +1043,8 @@ mod tests {
 
     #[test]
     fn pipeline_push_then_recompute() {
-        let frame1 = Frame::new()
-            .append(Node::from_data("x", vec![1.0_f64, 2.0]));
-        let frame2 = Frame::new()
-            .append(Node::from_data("x", vec![10.0_f64, 20.0]));
+        let frame1 = Frame::new().append(Node::from_data("x", vec![1.0_f64, 2.0]));
+        let frame2 = Frame::new().append(Node::from_data("x", vec![10.0_f64, 20.0]));
 
         let mut p = pipeline! {
             source!(x: f64);
@@ -990,8 +1065,7 @@ mod tests {
 
     #[test]
     fn pipeline_nested_basic() {
-        let frame = Frame::new()
-            .append(Node::from_data("price", vec![10.0_f64, 20.0, 40.0]));
+        let frame = Frame::new().append(Node::from_data("price", vec![10.0_f64, 20.0, 40.0]));
 
         let mut p = pipeline! {
             source!(price: f64);
@@ -1013,8 +1087,7 @@ mod tests {
     #[test]
     fn pipeline_nested_internal_nodes_invisible() {
         // Internal nodes of the nested pipeline are not in its output Frame.
-        let frame = Frame::new()
-            .append(Node::from_data("price", vec![10.0_f64, 20.0]));
+        let frame = Frame::new().append(Node::from_data("price", vec![10.0_f64, 20.0]));
 
         let mut p = pipeline! {
             source!(price: f64);
@@ -1041,8 +1114,7 @@ mod tests {
 
     #[test]
     fn pipeline_nested_isolate_failure_parent_continues() {
-        let frame = Frame::new()
-            .append(Node::from_data("price", vec![10.0_f64, 20.0]));
+        let frame = Frame::new().append(Node::from_data("price", vec![10.0_f64, 20.0]));
 
         let mut p = pipeline! {
             source!(price: f64);
@@ -1075,8 +1147,7 @@ mod tests {
 
     #[test]
     fn pipeline_sub_basic() {
-        let frame = Frame::new()
-            .append(Node::from_data("price", vec![100.0_f64, 200.0, 400.0]));
+        let frame = Frame::new().append(Node::from_data("price", vec![100.0_f64, 200.0, 400.0]));
 
         let mut p = pipeline! {
             source!(price: f64);
@@ -1102,8 +1173,7 @@ mod tests {
             }
         }
 
-        let frame = Frame::new()
-            .append(Node::from_data("price", vec![10.0_f64, 20.0]));
+        let frame = Frame::new().append(Node::from_data("price", vec![10.0_f64, 20.0]));
 
         let mut p = pipeline! {
             source!(price: f64);
@@ -1153,8 +1223,7 @@ mod tests {
             }
         }
 
-        let frame = Frame::new()
-            .append(Node::from_data("price", vec![1.0_f64]));
+        let frame = Frame::new().append(Node::from_data("price", vec![1.0_f64]));
 
         let mut p = pipeline! {
             source!(price: f64);
@@ -1265,7 +1334,9 @@ mod tests {
     fn frame_get_bool_happy_path() {
         let b = BoolNode::from_data("active", vec![true, false, true]);
         let frame = Frame::new().append(b);
-        let got = frame.get_bool("active").expect("get_bool should return Some");
+        let got = frame
+            .get_bool("active")
+            .expect("get_bool should return Some");
         assert_eq!(got.to_vec(), vec![true, false, true]);
     }
 

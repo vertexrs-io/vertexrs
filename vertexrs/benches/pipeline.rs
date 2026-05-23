@@ -273,10 +273,7 @@ mod correctness {
 
         assert_eq!(vtx_net.len(), pol_net.len());
         for (v, p) in vtx_net.iter().zip(pol_net.iter()) {
-            assert!(
-                (v - p).abs() < 1e-6,
-                "f64 mismatch: vtx={v} polars={p}"
-            );
+            assert!((v - p).abs() < 1e-6, "f64 mismatch: vtx={v} polars={p}");
         }
     }
 
@@ -298,10 +295,7 @@ mod correctness {
 
         assert_eq!(vtx_net.len(), pol_net.len());
         for (v, p) in vtx_net.iter().zip(pol_net.iter()) {
-            assert!(
-                (v - p).abs() < 1e-6,
-                "f32 mismatch: vtx={v} polars={p}"
-            );
+            assert!((v - p).abs() < 1e-6, "f32 mismatch: vtx={v} polars={p}");
         }
     }
 
@@ -350,6 +344,10 @@ mod correctness {
 criterion_group!(benches, bench_vtx_pipeline);
 
 #[cfg(feature = "bench-polars")]
-criterion_group!(benches, bench_vtx_pipeline, polars_benches::bench_polars_pipeline);
+criterion_group!(
+    benches,
+    bench_vtx_pipeline,
+    polars_benches::bench_polars_pipeline
+);
 
 criterion_main!(benches);

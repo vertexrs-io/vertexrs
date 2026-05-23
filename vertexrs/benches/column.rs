@@ -5,7 +5,7 @@
 //!   cargo bench --bench column
 
 use criterion::{BenchmarkId, Criterion, Throughput, criterion_group, criterion_main};
-use vertexrs::column::{ChunkedColumn, CHUNK_SIZE};
+use vertexrs::column::{CHUNK_SIZE, ChunkedColumn};
 
 const N: usize = 1_000_000;
 
@@ -132,5 +132,10 @@ fn bench_dirty_propagation(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_from_slice, bench_read_throughput, bench_dirty_propagation);
+criterion_group!(
+    benches,
+    bench_from_slice,
+    bench_read_throughput,
+    bench_dirty_propagation
+);
 criterion_main!(benches);

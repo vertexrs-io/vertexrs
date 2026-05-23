@@ -160,7 +160,12 @@ impl Graph {
         }
 
         self.consumers.push(Vec::new());
-        self.nodes.push(NodeDescriptor { id, name, inputs: inputs.to_vec(), mapping });
+        self.nodes.push(NodeDescriptor {
+            id,
+            name,
+            inputs: inputs.to_vec(),
+            mapping,
+        });
         id
     }
 
