@@ -21,7 +21,7 @@ Although the execution backend is columnar (Arrow-backed chunks), VertexRS is no
 - **Event-driven workflows** — reactive process graphs triggered by partial state changes; only the affected subgraph re-executes
 - **Agent and simulation loops** — tick-driven graphs where each agent's state node depends on neighbours; only dirty agents recompute each cycle
 
-Core design principles (see `.copilot/plans/main.md` for full detail):
+Core design principles (see `docs/plans/main.md` for full detail):
 - Nodes reference each other directly — the `pipeline!` macro builds the DAG, no manual edge declaration
 - Types drive execution strategy — scalar primitives → columnar/SIMD, heavy types → task/rayon
 - Arrow as the memory substrate — interop, validity bitmaps, 64-byte aligned buffers
@@ -54,7 +54,7 @@ Key abstractions:
 
 ## Build Plan
 
-The active build plan lives in `.copilot/plans/main.md`. It covers the open-source technical roadmap (Phases 1–9). The enterprise/commercial roadmap lives in `vertexrs-internal/.copilot/strategy/plan.md` (private repo). Before starting any non-trivial work, check the plan and confirm the next step aligns with the current phase.
+The active build plan lives in `docs/plans/main.md`. It covers the open-source technical roadmap (Phases 1–9). The enterprise/commercial roadmap lives in `vertexrs-internal/.copilot/strategy/plan.md` (private repo). Before starting any non-trivial work, check the plan and confirm the next step aligns with the current phase.
 
 Any agent or developer implementing a feature must:
 1. Check the plan for the relevant phase
@@ -105,7 +105,7 @@ Rules:
 
 ## Benchmarking Policy
 
-Benchmarks live in `vertexrs/benches/` and are written using `criterion`. See `.copilot/plans/main.md` Phase 2.3 for the full benchmark plan.
+Benchmarks live in `vertexrs/benches/` and are written using `criterion`. See `docs/plans/main.md` Phase 2.3 for the full benchmark plan.
 
 Key rules:
 - Benchmark new code paths on the recompute hot path before merging
@@ -185,7 +185,49 @@ bench    → cargo bench (main merges only: compare new vs previous main baselin
 ## Instruction & Agent Files
 
 - Instruction files (`.instructions.md`), agent files (`.agent.md`), and skill files (`SKILL.md`) should each be **≤ 2 000 tokens**
-- If a file grows beyond that, split it: extract the overflow into a focused sub-file and `@include` or link it from the parent file
+- If a file grows beyond that, split it: extract the overflow into a focused sub-file and link it from the parent file
 - Keep each file tightly scoped to one topic — this makes token budgets easier to respect and makes individual files easier to reason about
+
+### File locations
+
+| Path | Scope |
+|---|---|
+| `.github/instructions/lang/rust.instructions.md` | All `.rs` files |
+| `.github/instructions/modules/vertexrs.instructions.md` | `vertexrs/src/**/*.rs` |
+| `.github/instructions/modules/vertexrs-macro.instructions.md` | `vertexrs-macro/src/**/*.rs` |
+| `.github/instructions/process/planning.instructions.md` | Creating GitHub issues |
+| `.github/instructions/process/testing.instructions.md` | Writing and reviewing tests |
+| `.github/instructions/process/benchmarking.instructions.md` | Writing and reviewing benchmarks |
+| `.github/instructions/process/security.instructions.md` | Security-sensitive code |
+| `.github/instructions/process/pr-review.instructions.md` | Reviewing PRs |
+| `.github/agents/planner.agent.md` | Planner agent mode |
+| `.github/agents/scrum-master.agent.md` | ScrumMaster agent mode |
+| `.github/agents/architect.agent.md` | Architect agent mode |
+| `.github/agents/implementer.agent.md` | Implementer agent mode |
+| `.github/agents/reviewer.agent.md` | Reviewer agent mode |
+
+## Architectural Decision Records
+
+Core design decisions are recorded in `docs/adr/`. **Always read the relevant ADR(s) before implementing any feature** — they record *why* things are the way they are and constrain the acceptable solution space.
+
+| ADR | Decision |
+|---|---|
+| [0001](../docs/adr/0001-arrow-memory-substrate.md) | Apache Arrow as the memory substrate |
+| [0002](../docs/adr/0002-dirty-chunk-incremental-recompute.md) | Dirty-chunk incremental recomputation |
+| [0003](../docs/adr/0003-kernel-fusion.md) | Compile-time kernel fusion |
+| [0004](../docs/adr/0004-type-driven-execution-strategy.md) | Type-driven execution strategy selection |
+| [0005](../docs/adr/0005-macro-defined-dag.md) | Macro-defined DAG with direct node references |
+
+New ADRs go in `docs/adr/` using the template at `docs/adr/template.md`. Record a new ADR for any decision that is non-obvious, constrains future implementation, or was reached after considering alternatives.
+
+## docs/ structure
+
+All project content (documentation, plans, design artefacts) lives in `docs/`. `.github/` contains only GitHub platform config and Copilot tooling.
+
+| Path | Purpose |
+|---|---|
+| `docs/plans/main.md` | Active build plan — phases, tasks, checkboxes. Owned by the Planner agent. |
+| `docs/adr/` | Permanent architectural decision records. Read before implementing anything non-trivial. |
+| `docs/design/` | Issue-scoped design documents produced by the Architect agent. Obsolete once the issue is implemented, kept for traceability. |
 
 
