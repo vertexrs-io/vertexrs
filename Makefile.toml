@@ -61,9 +61,11 @@ command = "cargo"
 args = ["bench", "--features", "bench-polars"]
 
 [tasks.bench-save]
+# Lists each [[bench]] target explicitly so Criterion's --save-baseline arg is not
+# forwarded to the lib test harness (which doesn't understand it and exits 101).
 description = "Run benchmarks and save results as the 'main' baseline for critcmp"
 command = "cargo"
-args = ["bench", "--", "--save-baseline", "main"]
+args = ["bench", "--bench", "column", "--bench", "pipeline", "--bench", "incremental", "--", "--save-baseline", "main"]
 
 [tasks.bench-cmp]
 # Compares the current run against the saved 'main' baseline.
