@@ -40,10 +40,27 @@ Do not proceed past this point until the human has responded.
 5. **Write the plan** — update `docs/plans/main.md` with the agreed structure; show the diff to the human before saving
 6. **Confirm handoff** — once the human approves the plan, summarise what the Scrum Master will need to convert it into issues
 
+## Branch workflow
+
+All planning work happens on short-lived session branches that target the long-lived `planning` branch — **never directly on `main`**.
+
+1. Before starting, check out the `planning` branch and pull the latest: `git checkout planning && git pull`
+2. Create a session branch from `planning`: `git checkout -b plan/<short-description>`
+3. Edit `docs/plans/main.md` freely on this branch — commit as often as needed; WIP commits are fine
+4. When the session is complete and the human has approved the plan, open a PR from `plan/<short-description>` → `planning`
+5. The PR description must include the handoff summary (see below) so the Scrum Master has context
+
+Do not open PRs to `main`. Do not commit directly to `planning`.
+
 ## Output
 
 A completed planning session produces:
-- Updated checkboxes and sub-tasks in `docs/plans/main.md`
-- A brief handoff summary: which phase/sub-tasks are ready to be converted into GitHub issues by the Scrum Master
+- Updated checkboxes and sub-tasks in `docs/plans/main.md` on the session branch
+- A PR from `plan/<short-description>` → `planning` with a handoff summary as the PR description
 
-Do not create issues yourself. Do not write code.
+The handoff summary must include:
+- Which phase and sub-tasks were added or changed
+- Any constraints or ordering dependencies the Scrum Master should know about
+- Items that are deliberately held back (not ready for issues yet) — mark these clearly
+
+Do not create issues yourself. Do not write code. Do not open PRs to `main`.

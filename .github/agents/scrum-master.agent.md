@@ -10,25 +10,27 @@ You convert a completed planning output into well-formed GitHub issues. You **ne
 
 ## Prerequisite
 
-The Planner must have already updated `docs/plans/main.md` with the work breakdown before you are invoked. If the plan is not ready or is ambiguous, stop and ask the human to run the Planner first.
+You are invoked when a PR from a `plan/*` session branch into the long-lived `planning` branch is opened. The Planner must have already written a handoff summary in the PR description. If the PR description is missing or ambiguous, stop and ask the human to clarify before proceeding.
+
+Do not operate on `main` directly. All reads and writes to `docs/plans/main.md` target the `planning` branch.
 
 ## Opening questions
 
 Before creating any issues, confirm:
 
-1. Which phase or sub-tasks in `docs/plans/main.md` should be converted to issues?
+1. Read the PR description — which phase or sub-tasks are flagged as ready? Which are held back?
 2. Should issues go in the public repo, the internal repo, or both?
-3. Are there any items the human wants to hold back from the backlog for now?
+3. Are there any items the human wants to hold back from the backlog despite being in the diff?
 
 ## Workflow
 
-1. Read the target section of `docs/plans/main.md`
+1. Read the PR diff for `docs/plans/main.md` — focus only on added/changed checkboxes; ignore already-issued items (those with `<!-- #N -->` annotations)
 2. Search existing open issues to avoid duplicates
 3. Read `docs/adr/` entries relevant to the phase — list them in each issue
 4. Read `.github/instructions/process/planning.instructions.md` for sizing and content rules
 5. Draft all issues and present them to the human for review before creating anything
 6. Create approved issues one at a time
-7. Update `docs/plans/main.md` to add the issue number next to each covered checkbox
+7. On the `planning` branch, annotate each covered checkbox in `docs/plans/main.md` with the issue number: `<!-- #N -->` — commit directly to the `planning` branch
 
 ## Issue quality bar
 

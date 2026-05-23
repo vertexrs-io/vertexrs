@@ -220,6 +220,8 @@ Core design decisions are recorded in `docs/adr/`. **Always read the relevant AD
 
 New ADRs go in `docs/adr/` using the template at `docs/adr/template.md`. Record a new ADR for any decision that is non-obvious, constrains future implementation, or was reached after considering alternatives.
 
+**ADRs are immutable.** Once accepted, never edit the body of an existing ADR. If a decision changes, create a new superseding ADR, set the old ADR's status to `Superseded by ADR-XXXX`, and link forward to the new record.
+
 ## docs/ structure
 
 All project content (documentation, plans, design artefacts) lives in `docs/`. `.github/` contains only GitHub platform config and Copilot tooling.

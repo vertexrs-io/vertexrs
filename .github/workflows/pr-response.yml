@@ -1,0 +1,52 @@
+name: Address PR review comments
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+env:
+  COPILOT_MODEL: claude-sonnet-4.6
+
+jobs:
+  address-comments:
+    # Only fire on CHANGES_REQUESTED reviews targeting feat/* branches
+    if: |
+      github.event.review.state == 'changes_requested' &&
+      startsWith(github.event.pull_request.head.ref, 'feat/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Install Copilot CLI
+        run: npm install -g @github/copilot
+
+      - name: Run Implementer agent to address review
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REVIEWER: ${{ github.event.review.user.login }}
+        run: |
+          copilot \
+            --agent implementer \
+            --model $COPILOT_MODEL \
+            --prompt "PR #${PR_NUMBER} has received a 'Request changes' review from ${REVIEWER}. \
+              Read all unresolved review threads on PR #${PR_NUMBER} using the GitHub API. \
+              Address every requested change, following the same conventions and ADRs \
+              used in the original implementation. Run cargo make ci and fix every failure. \
+              Push the fixes to the current branch. Do not merge the PR." \
+            --no-ask-user \
+            --allow-all-tools

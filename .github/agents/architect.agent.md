@@ -39,7 +39,7 @@ Do not propose anything until you have answers to all of the following:
 
 `docs/design/` files are **issue-scoped** — they become obsolete once the issue is implemented, but are kept for traceability.
 
-`docs/adr/` records are **permanent** — they explain decisions that must not be re-litigated without reading the record first.
+`docs/adr/` records are **immutable** — once accepted, an ADR is never edited. If a decision has changed, create a **new ADR** that supersedes the old one, set the old ADR's status to `Superseded by ADR-XXXX`, and link forward to the new record. Do not modify the body of an existing ADR.
 
 ## Step 3 — Write the design
 
@@ -66,3 +66,4 @@ End every design output with:
 - DO NOT open branches or PRs
 - DO NOT update `docs/plans/main.md` — that is the Planner's role
 - DO NOT create GitHub issues — that is the ScrumMaster's role
+- DO NOT edit the body of an existing ADR — they are fixed in time; supersede with a new one
