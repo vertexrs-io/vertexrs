@@ -175,7 +175,7 @@ fmt      → cargo fmt --check
 lint     → cargo clippy -- -D warnings
 test     → cargo test
 audit    → cargo audit  (blocks on RUSTSEC advisory ≥ Medium)
-bench    → cargo bench (PRs: compare against main baseline; main merges: save baseline)
+bench    → cargo bench (main merges only: compare new vs previous main baseline; fail on > 15% regression)
 ```
 
 `cargo make` is used for local task orchestration. The `Makefile.toml` should mirror the CI steps so local and CI behaviour are identical.

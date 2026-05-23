@@ -1,13 +1,11 @@
 name: Bench
 
-# Runs on PRs targeting main (compares against last main baseline) and after
-# merges to main (saves the updated baseline). Not triggered for PRs targeting
-# other branches.
+# Runs only after a PR merges to main. Compares the new main results against
+# the previous main baseline via critcmp (fails on > 15% regression), then
+# saves the new results as the updated baseline for the next merge.
 
 on:
   push:
-    branches: [main]
-  pull_request:
     branches: [main]
 
 permissions:
@@ -28,32 +26,31 @@ jobs:
         with:
           tool: cargo-make,critcmp
 
-      # PRs: restore the saved main baseline so critcmp has something to compare against
-      - name: Restore bench baseline
+      # Restore the previous main baseline so critcmp has something to diff against
+      - name: Restore previous baseline
         id: restore-baseline
-        if: github.event_name == 'pull_request'
         uses: actions/cache/restore@v4
         with:
           path: target/criterion
           key: bench-baseline-main-${{ github.sha }}
           restore-keys: bench-baseline-main-
 
-      # PRs: run benchmarks then compare against main baseline
+      # Run benchmarks — saves results to target/criterion/*/new/ without
+      # touching the restored "main" baseline
       - name: Run benchmarks
-        if: github.event_name == 'pull_request'
         run: cargo make bench
 
-      - name: Compare against baseline
-        if: github.event_name == 'pull_request' && steps.restore-baseline.outputs.cache-matched-key != ''
+      # Compare new/ against the restored main/ baseline; skip on first ever merge
+      # (no baseline in cache yet). Fails the job if any benchmark regresses > 15%.
+      - name: Compare against previous baseline (fail on > 15% regression)
+        if: steps.restore-baseline.outputs.cache-matched-key != ''
         run: cargo make bench-cmp
 
-      # main merges: run benchmarks and save results as the new "main" baseline
-      - name: Run benchmarks and save baseline
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: cargo make bench-save
+      # Only reached if the comparison passed — promote new results to "main" baseline
+      - name: Save new baseline
+        run: cargo bench -- --save-baseline main
 
-      - name: Cache bench baseline
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      - name: Cache new baseline
         uses: actions/cache/save@v4
         with:
           path: target/criterion
