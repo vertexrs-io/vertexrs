@@ -44,7 +44,7 @@ jobs:
 
       # PRs: compare against main baseline; skip gracefully if no baseline exists yet
       - name: Compare against baseline
-        if: github.event_name == 'pull_request' && steps.restore-baseline.outputs.cache-hit == 'true'
+        if: github.event_name == 'pull_request' && steps.restore-baseline.outputs.cache-matched-key != ''
         run: cargo make bench-cmp
 
       # main merges: run benchmarks and save results as the new "main" baseline
