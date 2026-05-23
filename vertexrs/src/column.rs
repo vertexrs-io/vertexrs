@@ -64,7 +64,7 @@ impl<T: ArrowNativeType> AlignedChunk<T> {
         // §2.3). ScalarBuffer::from(Vec) wraps the Vec's allocation directly
         // and does not guarantee alignment, so we go through MutableBuffer to
         // uphold the invariant documented on this type.
-        let mut buf = MutableBuffer::new(src.len() * std::mem::size_of::<T>());
+        let mut buf = MutableBuffer::new(std::mem::size_of_val(src));
         buf.extend(src.iter().copied());
         Self {
             data: ScalarBuffer::new(buf.into(), 0, src.len()),
