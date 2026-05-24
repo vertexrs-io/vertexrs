@@ -15,7 +15,9 @@ jobs:
     if: |
       github.event_name == 'pull_request_review' &&
       github.event.pull_request.draft == true &&
-      startsWith(github.event.pull_request.head.ref, 'feat/')
+      startsWith(github.event.pull_request.head.ref, 'feat/') &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.review.author_association)
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -61,7 +63,10 @@ jobs:
 
   # Triggered by an issue comment while awaiting-design-approval — design feedback round
   refine-from-issue-comment:
-    if: github.event_name == 'issue_comment' && github.event.action == 'created'
+    if: |
+      github.event_name == 'issue_comment' &&
+      github.event.action == 'created' &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -91,8 +96,8 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --state open \
             --draft \
-            --json headRefName \
-            --jq "[.[] | select(.headRefName | startswith(\"feat/\"))] | .[0].headRefName")
+            --json headRefName,headRepository \
+            --jq "[.[] | select(.headRefName | startswith(\"feat/${ISSUE_NUMBER}-\")) | select(.headRepository.nameWithOwner == \"$GITHUB_REPOSITORY\")] | .[0].headRefName")
           echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@v4

@@ -9,8 +9,11 @@ env:
 
 jobs:
   design:
-    # Only fire on the 'ready' label — trivial check happens inside
-    if: github.event.label.name == 'ready'
+    # Only fire on the 'ready' label — trivial check happens inside.
+    # Guard: 'ready' must be set by the scheduler bot, never by an agent or human.
+    if: |
+      github.event.label.name == 'ready' &&
+      github.event.sender.login == 'github-actions[bot]'
     runs-on: ubuntu-latest
     permissions:
       contents: write

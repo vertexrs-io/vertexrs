@@ -11,8 +11,10 @@ env:
 
 jobs:
   planner-issues:
-    # Only fires for plan/* → planning PRs
-    if: startsWith(github.head_ref, 'plan/')
+    # Only fires for plan/* → planning PRs from this repo
+    if: |
+      startsWith(github.head_ref, 'plan/') &&
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -22,7 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: planning
+          ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
 
       - name: Install Copilot CLI
@@ -41,14 +43,14 @@ jobs:
             --prompt "Process PR #${PR_NUMBER} (${PR_URL}) using the Issue creation workflow \
               from .github/agents/planner.agent.md. \
               Read the PR description to identify which phases or sections are targeted, \
-              then read the relevant phase file(s) under docs/plans/ on the planning \
-              branch and collect all unannotated checkboxes (those without a <!-- #N --> \
+              then read the relevant phase file(s) under docs/plans/ in the current \
+              workspace and collect all unannotated checkboxes (those without a <!-- #N --> \
               annotation) in the targeted phases. Reconcile against existing open and \
               closed issues to avoid duplicates. Classify each issue as trivial or \
               non-trivial using the criteria in the agent file. Group or split tasks using \
               judgment to keep each issue independently reviewable and within 400 LOC. \
               Present draft issues to the human for approval, then create them and commit \
               inline <!-- #N --> annotations back to the relevant phase file(s) under \
-              docs/plans/ on the planning branch." \
+              docs/plans/ on this PR branch." \
             --no-ask-user \
             --allow-all-tools

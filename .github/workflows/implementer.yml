@@ -16,11 +16,13 @@ env:
 jobs:
   implement:
     # Fire on: workflow_dispatch, 'design-approved' label (non-trivial path),
-    # or 'ready' label (trivial check happens inside)
+    # or 'ready' label (trivial check happens inside).
+    # Guards: 'design-approved' must be set by a human; 'ready' must be set by the
+    # scheduler bot — prevents agent-applied labels from creating a runaway loop.
     if: |
       github.event_name == 'workflow_dispatch' ||
-      github.event.label.name == 'design-approved' ||
-      github.event.label.name == 'ready'
+      (github.event.label.name == 'design-approved' && github.event.sender.type == 'User') ||
+      (github.event.label.name == 'ready' && github.event.sender.login == 'github-actions[bot]')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -34,17 +36,22 @@ jobs:
         id: check
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Pass event context through env to avoid inline expression injection.
+          # Label names can contain shell metacharacters; env vars are never word-split.
+          EVENT_NAME: ${{ github.event_name }}
+          LABEL_NAME: ${{ github.event.label.name }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             echo "proceed=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          if [ "${{ github.event.label.name }}" = "design-approved" ]; then
+          if [ "$LABEL_NAME" = "design-approved" ]; then
             echo "proceed=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           # 'ready' label: only proceed when the issue is also labelled 'trivial'
-          HAS_TRIVIAL=$(gh issue view "${{ github.event.issue.number }}" \
+          HAS_TRIVIAL=$(gh issue view "$ISSUE_NUMBER" \
             --repo "$GITHUB_REPOSITORY" \
             --json labels \
             --jq '[.labels[].name] | any(. == "trivial")')
@@ -90,7 +97,10 @@ jobs:
               feat/<issue-number>-<slug> branch the Architect created and check it out — do \
               NOT create a new branch from main. For trivial issues, create a new branch from \
               main: feat/<issue-number>-<slug>. Implement the acceptance criteria, \
-              run cargo make ci and fix every failure, then open a PR to main. \
+              run cargo make ci and fix every failure. \
+              For trivial issues, open a new PR from the branch to main. \
+              For non-trivial issues, convert the existing draft PR to ready for review — \
+              do NOT open a second PR to main. \
               Do not skip the CI gate. Do not merge the PR." \
             --no-ask-user \
             --allow-all-tools
