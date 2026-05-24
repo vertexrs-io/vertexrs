@@ -22,10 +22,24 @@ jobs:
       issues: write
 
     steps:
+      # Pin to immutable SHA — mutable branch ref is a TOCTOU vector.
+      # Branch tracking is restored afterwards so the agent can push annotations.
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Set branch tracking
+        env:
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          git checkout -B "$BRANCH"
+          git branch --set-upstream-to="origin/$BRANCH" "$BRANCH"
 
       - name: Install Copilot CLI
         run: npm install -g @github/copilot

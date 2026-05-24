@@ -25,15 +25,25 @@ jobs:
       issues: write
 
     steps:
+      # Pin to the immutable commit SHA, not the mutable branch name, to satisfy
+      # CodeQL CWE-829 TOCTOU: the branch could be force-pushed between trigger and
+      # checkout. We restore the branch tracking afterwards so the agent can push.
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
       - name: Configure git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Set branch tracking
+        env:
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          git checkout -B "$BRANCH"
+          git branch --set-upstream-to="origin/$BRANCH" "$BRANCH"
 
       - name: Install Copilot CLI
         run: npm install -g @github/copilot
@@ -92,18 +102,24 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
-          BRANCH=$(gh pr list \
+          # Fetch both the branch name and its current SHA so we can pin the
+          # checkout to an immutable commit (TOCTOU fix — branch could be
+          # force-pushed between this query and the checkout step).
+          PR_JSON=$(gh pr list \
             --repo "$GITHUB_REPOSITORY" \
             --state open \
             --draft \
-            --json headRefName,headRepository \
-            --jq "[.[] | select(.headRefName | startswith(\"feat/${ISSUE_NUMBER}-\")) | select(.headRepository.nameWithOwner == \"$GITHUB_REPOSITORY\")] | .[0].headRefName")
+            --json headRefName,headRefOid,headRepository \
+            --jq "[.[] | select(.headRefName | startswith(\"feat/${ISSUE_NUMBER}-\")) | select(.headRepository.nameWithOwner == \"$GITHUB_REPOSITORY\")] | .[0]")
+          BRANCH=$(echo "$PR_JSON" | jq -r '.headRefName // empty')
+          SHA=$(echo "$PR_JSON" | jq -r '.headRefOid // empty')
           echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@v4
         if: steps.check.outputs.has_label == 'true' && steps.branch.outputs.branch != ''
         with:
-          ref: ${{ steps.branch.outputs.branch }}
+          ref: ${{ steps.branch.outputs.sha }}
           fetch-depth: 0
 
       - name: Configure git
@@ -111,6 +127,14 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Set branch tracking
+        if: steps.check.outputs.has_label == 'true' && steps.branch.outputs.branch != ''
+        env:
+          BRANCH: ${{ steps.branch.outputs.branch }}
+        run: |
+          git checkout -B "$BRANCH"
+          git branch --set-upstream-to="origin/$BRANCH" "$BRANCH"
 
       - name: Install Copilot CLI
         if: steps.check.outputs.has_label == 'true' && steps.branch.outputs.branch != ''
