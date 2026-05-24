@@ -9,10 +9,12 @@ env:
 
 jobs:
   address-comments:
-    # Only fire on CHANGES_REQUESTED reviews targeting feat/* branches
+    # Only fire on CHANGES_REQUESTED reviews targeting ready (non-draft) feat/* branches.
+    # Draft feat/* PRs are still in the design phase — those are handled by architect-response.yml.
     if: |
       github.event.review.state == 'changes_requested' &&
-      startsWith(github.event.pull_request.head.ref, 'feat/')
+      startsWith(github.event.pull_request.head.ref, 'feat/') &&
+      github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     permissions:
       contents: write

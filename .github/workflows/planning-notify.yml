@@ -1,4 +1,4 @@
-name: Notify ScrumMaster on planning PR
+name: Notify Planner on planning PR
 
 on:
   pull_request:
@@ -10,7 +10,7 @@ env:
   COPILOT_MODEL: claude-sonnet-4.6
 
 jobs:
-  scrum-master:
+  planner-issues:
     # Only fires for plan/* → planning PRs
     if: startsWith(github.head_ref, 'plan/')
     runs-on: ubuntu-latest
@@ -28,7 +28,7 @@ jobs:
       - name: Install Copilot CLI
         run: npm install -g @github/copilot
 
-      - name: Run ScrumMaster agent
+      - name: Run Planner agent (issue creation)
         env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -36,18 +36,19 @@ jobs:
           PR_URL: ${{ github.event.pull_request.html_url }}
         run: |
           copilot \
-            --agent scrum-master \
+            --agent planner \
             --model $COPILOT_MODEL \
-            --prompt "Process PR #${PR_NUMBER} (${PR_URL}). \
-              Follow the full ScrumMaster workflow from .github/agents/scrum-master.agent.md. \
+            --prompt "Process PR #${PR_NUMBER} (${PR_URL}) using the Issue creation workflow \
+              from .github/agents/planner.agent.md. \
               Read the PR description to identify which phases or sections are targeted, \
               then read the relevant phase file(s) under docs/plans/ on the planning \
               branch and collect all unannotated checkboxes (those without a <!-- #N --> \
               annotation) in the targeted phases. Reconcile against existing open and \
-              closed issues to avoid duplicates. Group or split tasks using judgment to \
-              keep each issue independently reviewable and within 400 LOC. Present draft \
-              issues to the human for approval, then create them and commit inline <!-- #N --> \
-              annotations back to the relevant phase file(s) under docs/plans/ on the \
-              planning branch." \
+              closed issues to avoid duplicates. Classify each issue as trivial or \
+              non-trivial using the criteria in the agent file. Group or split tasks using \
+              judgment to keep each issue independently reviewable and within 400 LOC. \
+              Present draft issues to the human for approval, then create them and commit \
+              inline <!-- #N --> annotations back to the relevant phase file(s) under \
+              docs/plans/ on the planning branch." \
             --no-ask-user \
             --allow-all-tools

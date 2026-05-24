@@ -4,6 +4,16 @@ description: "Testing standards and coverage requirements. Apply when writing or
 
 # Testing Standards
 
+## AC-driven testing
+
+Every test must be traceable to an acceptance criterion in the linked issue. Before writing any test, ask: which AC does this verify?
+
+- **Required:** tests that verify a stated acceptance criterion
+- **Allowed:** tests for complex internal invariants not captured by an AC (e.g. memory-safety postconditions in `unsafe` blocks)
+- **Not allowed:** tests added purely to reach the 90% coverage threshold with no AC justification
+
+The 90% coverage target is a consequence of thorough AC-driven testing — not a goal to hit with trivial or meaningless assertions. If coverage falls below 90% after writing all AC tests, the ACs were incomplete and should be revisited with the Planner.
+
 ## Coverage requirement
 
 Line coverage must be ≥ 90% across `vertexrs` and `vertexrs-macro`. Measure with:

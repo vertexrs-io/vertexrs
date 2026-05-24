@@ -20,8 +20,7 @@ flowchart TD
     PL -->|commits to plan/* branch\nopens PR into planning| PR1[PR: plan/* → planning]
     PR1 -->|planning-sync.yml\nmerges main into planning| SYNC[Sync main → planning]
     SYNC --> PR1
-    PR1 -->|planning-notify.yml\ntriggers on PR open| SM[ScrumMaster\nCopilot CLI]
-    SM -->|creates issues\nlabels queued ± trivial\nannotates main.md| ISSUES[(GitHub Issues\nqueued ± trivial)]
+    PL -->|creates issues\nlabels queued ± trivial\nannotates plan files| ISSUES[(GitHub Issues\nqueued ± trivial)]
 
     ISSUES -->|human reviews &\nsets awaiting-agent| AWAIT[awaiting-agent]
 
@@ -31,11 +30,13 @@ flowchart TD
 
     READY -->|trivial label present\nimplementer.yml triggers| IMP[Implementer\nCopilot CLI]
     READY -->|no trivial label\narchitect.yml triggers| AR[Architect\nCopilot CLI]
-    AR -->|posts design to issue\nsets awaiting-design-approval| ADA[awaiting-design-approval]
+    AR -->|creates feat/* branch\ncommits design docs\nopens draft PR to main\nsets awaiting-design-approval| ADA[awaiting-design-approval]
+    ADA -->|human leaves review/comment\non draft PR or issue| AR_REF[Architect\nrefinement]
+    AR_REF -->|updates design docs\ncommits + replies| ADA
     ADA -->|human approves design\nsets design-approved| DA[design-approved]
     DA -->|implementer.yml triggers| IMP
 
-    IMP -->|creates feat/ branch\nimplements, runs CI\nopens PR to main| PR2[PR: feat/* → main]
+    IMP -->|picks up feat/* branch\nimplements, runs CI\nconverts draft PR to ready| PR2[PR: feat/* → main]
 
     PR2 --> REV[Reviewer\nCopilot CLI]
     REV -->|posts review comments| PR2
@@ -55,21 +56,21 @@ flowchart TD
     style DA fill:#d4edda,stroke:#28a745
 ```
 
-The Architect is **required for all non-trivial issues**. The ScrumMaster classifies each issue at creation time — trivial issues receive a `trivial` label alongside `queued` and bypass the Architect stage entirely.
+The Architect is **required for all non-trivial issues**. The Planner classifies each issue at creation time — trivial issues receive a `trivial` label alongside `queued` and bypass the Architect stage entirely.
 
 Each stage has a dedicated agent mode (`.github/agents/`):
 
 | Stage | Agent | What it does |
 |---|---|---|
-| Plan | `Planner` | Collaborative thinking partner — works with the human through Q&A to define and refine `main.md`; commits to a `plan/*` session branch; opens PR into `planning` |
-| Backlog | `ScrumMaster` | Invoked on a `plan/*` → `planning` PR; reads the diff, creates issues labelled `queued` (and `trivial` if appropriate), annotates `main.md` on `planning` with issue numbers |
+| Plan + Backlog | `Planner` | Works with the human through Q&A to define and refine the plan; writes plan files; creates GitHub issues labelled `queued` (± `trivial`); annotates plan files with issue numbers; commits to a `plan/*` session branch; opens PR into `planning` |
 | Schedule | Workflow | `implementer-queue.yml` — fires on `awaiting-agent` label and on `feat/*` PR close; promotes the oldest `awaiting-agent` issue to `ready` when the slot count is below the limit |
-| Design | `Architect` | Triggered by `ready` on non-trivial issues; posts design to the issue; sets `awaiting-design-approval`; waits for human sign-off before Implementer starts |
-| Implement | `Implementer` | Triggered by `ready` (trivial) or `design-approved` (non-trivial); creates `feat/` branch, implements, runs CI, opens PR to `main` |
+| Design | `Architect` | Triggered by `ready` on non-trivial issues; creates `feat/<issue-number>-<slug>` branch from `main`, commits design docs (`docs/design/`, `docs/adr/` if needed), opens a draft PR to `main`, posts a design summary on the issue, sets `awaiting-design-approval` |
+| Design refinement | `Architect` | Re-triggered by `architect-response.yml` on any PR review or issue comment while `awaiting-design-approval`; updates design docs, commits, posts a reply — repeats until human sets `design-approved` |
+| Implement | `Implementer` | Triggered by `ready` (trivial) or `design-approved` (non-trivial); picks up the existing `feat/*` branch (or creates it for trivial), implements, runs CI, converts draft PR to ready |
 | Review | `Reviewer` | Reads the PR diff, checks against instructions and ADRs, posts comments — never touches code |
 | Approve | **Human** | Final approval and merge; agents never merge |
 
-**Role boundaries are strict.** Only the Planner edits the build plan. Only the ScrumMaster creates GitHub issues. Only the Scheduler sets the `ready` label. Only humans approve and merge PRs.
+**Role boundaries are strict.** Only the Planner edits the build plan and creates GitHub issues. Only the Scheduler sets the `ready` label. Only humans approve and merge PRs.
 
 ## Issue label pipeline
 
@@ -77,8 +78,8 @@ Issues move through a fixed sequence of labels. No agent or automation skips or 
 
 | Label | Set by | Meaning |
 |---|---|---|
-| `queued` | ScrumMaster | Issue created; not yet human-reviewed |
-| `trivial` | ScrumMaster | Co-applied with `queued`; issue bypasses the Architect stage |
+| `queued` | Planner | Issue created; not yet human-reviewed |
+| `trivial` | Planner | Co-applied with `queued`; issue bypasses the Architect stage |
 | `awaiting-agent` | Human | Reviewed and approved for implementation; waiting for a concurrency slot |
 | `ready` | Scheduler | Slot granted; triggers Architect (non-trivial) or Implementer (trivial) |
 | `awaiting-design-approval` | Architect | Design posted to the issue; waiting for human sign-off |
@@ -98,14 +99,14 @@ When a `feat/*` PR is closed (merged or abandoned) the workflow re-evaluates the
 
 | Branch | Purpose |
 |---|---|
-| `main` | Stable, releasable code. Plan checkpoints merged here infrequently and deliberately. |
-| `planning` | Long-lived. Holds the evolving plan files under `docs/plans/`. Never merged to `main` on a schedule — only at deliberate phase checkpoints. Regularly synced FROM `main` via an automated workflow (see below). |
+| `main` | Stable, releasable code. Feature code, design docs, and ADRs all land here via `feat/*` PRs. |
+| `planning` | Long-lived. Holds only `docs/plans/` files. Never merged to `main` on a schedule — only at deliberate phase checkpoints. Regularly synced FROM `main` via an automated workflow. |
 | `plan/<description>` | Short-lived session branches created from `planning`. Planner works here. Merged into `planning` via PR. Deleted after merge. |
-| `feat/<description>` | Short-lived implementation branches created from `main`. Implementer works here. Merged into `main` via PR. |
+| `feat/<issue-number>-<slug>` | Short-lived implementation branches created from `main`. Architect seeds with design docs; Implementer adds the code. Merged into `main` via PR. |
 
 ## Keeping `planning` in sync with `main`
 
-`.github/workflows/planning-sync.yml` runs on every PR opened against `planning` and merges `main` in automatically. If the merge is clean it pushes directly; if there is a conflict Copilot attempts to resolve it first, and only opens a manual-resolution PR if it cannot. This ensures the plan is always up to date with main before the ScrumMaster processes a new session diff.
+`.github/workflows/planning-sync.yml` runs on every PR opened against `planning` and merges `main` in automatically. This keeps the plan files up to date with the latest codebase state so the Planner always works with current context.
 
 ## Finding the current phase
 

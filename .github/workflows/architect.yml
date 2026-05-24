@@ -13,7 +13,8 @@ jobs:
     if: github.event.label.name == 'ready'
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
+      pull-requests: write
       issues: write
 
     steps:
@@ -37,6 +38,13 @@ jobs:
         if: steps.check.outputs.trivial == 'false'
         with:
           ref: main
+          fetch-depth: 0
+
+      - name: Configure git
+        if: steps.check.outputs.trivial == 'false'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Install Copilot CLI
         if: steps.check.outputs.trivial == 'false'
@@ -55,11 +63,14 @@ jobs:
             --prompt "Produce a technical design for issue #${ISSUE_NUMBER}. \
               Follow the full Architect workflow from .github/agents/architect.agent.md: \
               read the issue and every acceptance criterion, check all relevant ADRs in \
-              docs/adr/, search the codebase to identify every type, trait, and module the \
-              change will touch, write a complete design (approach, module changes, concrete \
-              Rust type and trait signatures, call flow, ADR impact), post it as a comment \
-              on issue #${ISSUE_NUMBER}, remove the 'ready' label, and set the \
-              'awaiting-design-approval' label on the issue. \
-              Do not write any .rs source files. Do not open branches or PRs." \
+              docs/adr/ on main, search the codebase to identify every type, trait, and \
+              module the change will touch, write a complete design (approach, module \
+              changes, concrete Rust type and trait signatures, call flow, ADR impact). \
+              Then: create the branch feat/<issue-number>-<slug> from main, commit the design \
+              document(s) to docs/design/ and/or docs/adr/ as appropriate, open a draft \
+              PR from that branch to main, post a design summary comment on issue \
+              #${ISSUE_NUMBER} linking to the draft PR, remove the 'ready' label, and set \
+              the 'awaiting-design-approval' label on the issue. \
+              Do not write any .rs source files." \
             --no-ask-user \
             --allow-all-tools

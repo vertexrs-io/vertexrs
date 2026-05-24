@@ -85,8 +85,11 @@ jobs:
               Follow the full Implementer workflow from .github/agents/implementer.agent.md. \
               First read the issue in full — if there is an Architect design comment on the \
               issue, read it carefully and follow it; if not (trivial issue), determine the \
-              approach yourself. Check all relevant ADRs in docs/adr/. Create a feature \
-              branch from main named feat/<issue-slug>, implement the acceptance criteria, \
+              approach yourself. Check all relevant ADRs in docs/adr/. \
+              For non-trivial issues (triggered by design-approved), find the existing \
+              feat/<issue-number>-<slug> branch the Architect created and check it out — do \
+              NOT create a new branch from main. For trivial issues, create a new branch from \
+              main: feat/<issue-number>-<slug>. Implement the acceptance criteria, \
               run cargo make ci and fix every failure, then open a PR to main. \
               Do not skip the CI gate. Do not merge the PR." \
             --no-ask-user \

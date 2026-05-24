@@ -32,6 +32,7 @@ Work through the checklist in `.github/instructions/process/pr-review.instructio
 - A CI step is failing
 - Coverage has dropped below 90%
 - One or more acceptance criteria from the issue are unmet
+- One or more acceptance criteria have no corresponding test — every AC must be verifiable by at least one named test
 - An ADR constraint is violated
 - `unsafe` code lacks a `// SAFETY:` comment
 - `unwrap()` appears in library code (outside tests/examples)

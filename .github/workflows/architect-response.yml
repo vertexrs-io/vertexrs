@@ -1,0 +1,137 @@
+name: Architect design refinement
+
+on:
+  pull_request_review:
+    types: [submitted]
+  issue_comment:
+    types: [created]
+
+env:
+  COPILOT_MODEL: claude-sonnet-4.6
+
+jobs:
+  # Triggered by a PR review on a draft feat/* PR — design feedback round
+  refine-from-pr-review:
+    if: |
+      github.event_name == 'pull_request_review' &&
+      github.event.pull_request.draft == true &&
+      startsWith(github.event.pull_request.head.ref, 'feat/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Install Copilot CLI
+        run: npm install -g @github/copilot
+
+      - name: Run Architect refinement
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REVIEWER: ${{ github.event.review.user.login }}
+        run: |
+          copilot \
+            --agent architect \
+            --model $COPILOT_MODEL \
+            --prompt "PR #${PR_NUMBER} has received design feedback from ${REVIEWER}. \
+              Read all unresolved review threads on PR #${PR_NUMBER}. \
+              Follow the Architect refinement loop from .github/agents/architect.agent.md Step 5: \
+              update docs/design/ and/or docs/adr/ on the current branch to address every piece \
+              of feedback — refine signatures, call flows, dependency graphs, or level of detail \
+              as requested. Record rejected alternatives. Update the open questions list. \
+              Commit with message 'design: incorporate feedback from ${REVIEWER}'. \
+              Post a reply comment on the linked issue summarising what changed, any trade-offs, \
+              and any remaining open questions. \
+              Do not write any .rs source files. Do not set design-approved." \
+            --no-ask-user \
+            --allow-all-tools
+
+  # Triggered by an issue comment while awaiting-design-approval — design feedback round
+  refine-from-issue-comment:
+    if: github.event_name == 'issue_comment' && github.event.action == 'created'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Check for awaiting-design-approval label
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          HAS_LABEL=$(gh issue view "${{ github.event.issue.number }}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json labels \
+            --jq '[.labels[].name] | any(. == "awaiting-design-approval")')
+          echo "has_label=$HAS_LABEL" >> "$GITHUB_OUTPUT"
+
+      - name: Find linked draft PR branch
+        id: branch
+        if: steps.check.outputs.has_label == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          BRANCH=$(gh pr list \
+            --repo "$GITHUB_REPOSITORY" \
+            --state open \
+            --draft \
+            --json headRefName \
+            --jq "[.[] | select(.headRefName | startswith(\"feat/\"))] | .[0].headRefName")
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.has_label == 'true' && steps.branch.outputs.branch != ''
+        with:
+          ref: ${{ steps.branch.outputs.branch }}
+          fetch-depth: 0
+
+      - name: Configure git
+        if: steps.check.outputs.has_label == 'true' && steps.branch.outputs.branch != ''
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Install Copilot CLI
+        if: steps.check.outputs.has_label == 'true' && steps.branch.outputs.branch != ''
+        run: npm install -g @github/copilot
+
+      - name: Run Architect refinement
+        if: steps.check.outputs.has_label == 'true' && steps.branch.outputs.branch != ''
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+          BRANCH: ${{ steps.branch.outputs.branch }}
+        run: |
+          copilot \
+            --agent architect \
+            --model $COPILOT_MODEL \
+            --prompt "Issue #${ISSUE_NUMBER} has received design feedback from ${COMMENTER} \
+              while awaiting design approval. Read the latest comment on issue #${ISSUE_NUMBER}. \
+              Follow the Architect refinement loop from .github/agents/architect.agent.md Step 5: \
+              update docs/design/ and/or docs/adr/ on branch ${BRANCH} to address the feedback — \
+              refine signatures, call flows, dependency graphs, or level of detail as requested. \
+              Record rejected alternatives. Update the open questions list. \
+              Commit with message 'design: incorporate feedback from ${COMMENTER}'. \
+              Post a reply comment on issue #${ISSUE_NUMBER} summarising what changed, any \
+              trade-offs, and any remaining open questions. \
+              Do not write any .rs source files. Do not set design-approved." \
+            --no-ask-user \
+            --allow-all-tools
