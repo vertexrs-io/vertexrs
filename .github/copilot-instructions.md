@@ -21,7 +21,7 @@ Although the execution backend is columnar (Arrow-backed chunks), VertexRS is no
 - **Event-driven workflows** — reactive process graphs triggered by partial state changes; only the affected subgraph re-executes
 - **Agent and simulation loops** — tick-driven graphs where each agent's state node depends on neighbours; only dirty agents recompute each cycle
 
-Core design principles (see `docs/plans/main.md` for full detail):
+Core design principles (see `docs/plans/` for full detail):
 - Nodes reference each other directly — the `pipeline!` macro builds the DAG, no manual edge declaration
 - Types drive execution strategy — scalar primitives → columnar/SIMD, heavy types → task/rayon
 - Arrow as the memory substrate — interop, validity bitmaps, 64-byte aligned buffers
@@ -54,7 +54,7 @@ Key abstractions:
 
 ## Build Plan
 
-The active build plan lives in `docs/plans/main.md`. It covers the open-source technical roadmap (Phases 1–9). The enterprise/commercial roadmap lives in `vertexrs-internal/.copilot/strategy/plan.md` (private repo). Before starting any non-trivial work, check the plan and confirm the next step aligns with the current phase.
+The build plan is split by phase under `docs/plans/`. `docs/plans/main.md` is the index (phase list and status); each phase has its own file (`docs/plans/phase-01-core-engine.md`, etc.). The enterprise/commercial roadmap lives in `vertexrs-internal/.copilot/strategy/plan.md` (private repo). Before starting any non-trivial work, check the index and the relevant phase file to confirm the next step aligns with the current phase.
 
 Any agent or developer implementing a feature must:
 1. Check the plan for the relevant phase
@@ -105,7 +105,7 @@ Rules:
 
 ## Benchmarking Policy
 
-Benchmarks live in `vertexrs/benches/` and are written using `criterion`. See `docs/plans/main.md` Phase 2.3 for the full benchmark plan.
+Benchmarks live in `vertexrs/benches/` and are written using `criterion`. See `docs/plans/phase-02-macro-system.md` for the full benchmark plan.
 
 Key rules:
 - Benchmark new code paths on the recompute hot path before merging
@@ -228,7 +228,8 @@ All project content (documentation, plans, design artefacts) lives in `docs/`. `
 
 | Path | Purpose |
 |---|---|
-| `docs/plans/main.md` | Active build plan — phases, tasks, checkboxes. Owned by the Planner agent. |
+| `docs/plans/main.md` | Phase index — phase list, status, and links to phase files. Owned by the Planner agent. |
+| `docs/plans/phase-XX-*.md` | Per-phase detail files — checkboxes, tasks, issue annotations. Owned by the Planner agent. |
 | `docs/adr/` | Permanent architectural decision records. Read before implementing anything non-trivial. |
 | `docs/design/` | Issue-scoped design documents produced by the Architect agent. Obsolete once the issue is implemented, kept for traceability. |
 

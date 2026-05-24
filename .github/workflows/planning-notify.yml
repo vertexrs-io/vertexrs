@@ -38,10 +38,16 @@ jobs:
           copilot \
             --agent scrum-master \
             --model $COPILOT_MODEL \
-            --prompt "Process the plan diff in PR #${PR_NUMBER} (${PR_URL}/files). \
-              Follow the full ScrumMaster workflow: read the diff, skip any checkboxes \
-              already annotated with <!-- #N -->, create GitHub issues for each ready \
-              item, and commit issue number annotations back to docs/plans/main.md on \
-              the planning branch." \
+            --prompt "Process PR #${PR_NUMBER} (${PR_URL}). \
+              Follow the full ScrumMaster workflow from .github/agents/scrum-master.agent.md. \
+              Read the PR description to identify which phases or sections are targeted, \
+              then read the relevant phase file(s) under docs/plans/ on the planning \
+              branch and collect all unannotated checkboxes (those without a <!-- #N --> \
+              annotation) in the targeted phases. Reconcile against existing open and \
+              closed issues to avoid duplicates. Group or split tasks using judgment to \
+              keep each issue independently reviewable and within 400 LOC. Present draft \
+              issues to the human for approval, then create them and commit inline <!-- #N --> \
+              annotations back to the relevant phase file(s) under docs/plans/ on the \
+              planning branch." \
             --no-ask-user \
             --allow-all-tools

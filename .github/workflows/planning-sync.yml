@@ -60,10 +60,10 @@ jobs:
             --model $COPILOT_MODEL \
             --prompt "Resolve the git merge conflicts in the working tree. \
               This is a merge of main into the planning branch. \
-              The only file that should have conflicts is docs/plans/main.md. \
+              The plan is split across multiple files under docs/plans/. \
               Preserve all content from both sides — do not discard any checkboxes, \
-              issue annotations, or plan text. Once resolved, stage the file and \
-              complete the merge commit." \
+              issue annotations, or plan text from any plan file. Once resolved, stage \
+              the affected files and complete the merge commit." \
             --no-ask-user \
             --allow-all-tools
           if git diff --quiet && git diff --cached --quiet; then

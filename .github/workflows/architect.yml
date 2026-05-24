@@ -1,0 +1,65 @@
+name: Run Architect agent
+
+on:
+  issues:
+    types: [labeled]
+
+env:
+  COPILOT_MODEL: claude-sonnet-4.6
+
+jobs:
+  design:
+    # Only fire on the 'ready' label — trivial check happens inside
+    if: github.event.label.name == 'ready'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Check for trivial label
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          HAS_TRIVIAL=$(gh issue view "${{ github.event.issue.number }}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json labels \
+            --jq '[.labels[].name] | any(. == "trivial")')
+          echo "trivial=$HAS_TRIVIAL" >> "$GITHUB_OUTPUT"
+          if [ "$HAS_TRIVIAL" = "true" ]; then
+            echo "Issue #${{ github.event.issue.number }} is trivial — Architect not required, Implementer will handle it."
+          else
+            echo "Issue #${{ github.event.issue.number }} is non-trivial — running Architect."
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.trivial == 'false'
+        with:
+          ref: main
+
+      - name: Install Copilot CLI
+        if: steps.check.outputs.trivial == 'false'
+        run: npm install -g @github/copilot
+
+      - name: Run Architect agent
+        if: steps.check.outputs.trivial == 'false'
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          copilot \
+            --agent architect \
+            --model $COPILOT_MODEL \
+            --prompt "Produce a technical design for issue #${ISSUE_NUMBER}. \
+              Follow the full Architect workflow from .github/agents/architect.agent.md: \
+              read the issue and every acceptance criterion, check all relevant ADRs in \
+              docs/adr/, search the codebase to identify every type, trait, and module the \
+              change will touch, write a complete design (approach, module changes, concrete \
+              Rust type and trait signatures, call flow, ADR impact), post it as a comment \
+              on issue #${ISSUE_NUMBER}, remove the 'ready' label, and set the \
+              'awaiting-design-approval' label on the issue. \
+              Do not write any .rs source files. Do not open branches or PRs." \
+            --no-ask-user \
+            --allow-all-tools

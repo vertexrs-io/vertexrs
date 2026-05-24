@@ -1,0 +1,89 @@
+name: Implementer queue — promote next awaiting-agent issue
+
+on:
+  # Human just approved an issue — check immediately if a slot is free
+  issues:
+    types: [labeled]
+  # A feat/* PR was closed (merged or abandoned) — a slot may have freed
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+
+jobs:
+  promote:
+    # Fire when: awaiting-agent label applied, OR a feat/* PR targeting main is closed
+    if: |
+      (github.event_name == 'issues' && github.event.label.name == 'awaiting-agent') ||
+      (github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'feat/'))
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+
+    steps:
+      - name: Count in-flight slots
+        id: slots
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Default limit to 1 if the repo variable is not set
+          RAW_LIMIT="${{ vars.IMPLEMENTER_CONCURRENCY_LIMIT }}"
+          LIMIT="${RAW_LIMIT:-1}"
+
+          # A slot is in use whenever an open issue holds any in-flight label.
+          # Labels are mutually exclusive: agents remove the old label before adding the next.
+          READY=$(gh issue list \
+            --repo "$GITHUB_REPOSITORY" \
+            --state open \
+            --label 'ready' \
+            --json number \
+            --jq 'length')
+          DESIGN=$(gh issue list \
+            --repo "$GITHUB_REPOSITORY" \
+            --state open \
+            --label 'awaiting-design-approval' \
+            --json number \
+            --jq 'length')
+          APPROVED=$(gh issue list \
+            --repo "$GITHUB_REPOSITORY" \
+            --state open \
+            --label 'design-approved' \
+            --json number \
+            --jq 'length')
+
+          # Also count open feat/* PRs — a slot remains in use until the PR is closed
+          OPEN_PRS=$(gh pr list \
+            --repo "$GITHUB_REPOSITORY" \
+            --state open \
+            --head 'feat/*' \
+            --json number \
+            --jq 'length')
+
+          USED=$(( READY + DESIGN + APPROVED + OPEN_PRS ))
+          echo "Slots in use: $USED / $LIMIT  (ready=$READY, awaiting-design-approval=$DESIGN, design-approved=$APPROVED, open_prs=$OPEN_PRS)"
+          echo "used=$USED" >> "$GITHUB_OUTPUT"
+          echo "limit=$LIMIT" >> "$GITHUB_OUTPUT"
+
+      - name: Promote oldest awaiting-agent issue
+        if: fromJSON(steps.slots.outputs.used) < fromJSON(steps.slots.outputs.limit)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Oldest issue = lowest issue number (FIFO)
+          ISSUE=$(gh issue list \
+            --repo "$GITHUB_REPOSITORY" \
+            --state open \
+            --label 'awaiting-agent' \
+            --json number \
+            --jq 'sort_by(.number) | .[0].number // empty')
+
+          if [ -z "$ISSUE" ]; then
+            echo "No awaiting-agent issues to promote."
+            exit 0
+          fi
+
+          echo "Promoting issue #$ISSUE: awaiting-agent → ready"
+          gh issue edit "$ISSUE" \
+            --repo "$GITHUB_REPOSITORY" \
+            --remove-label 'awaiting-agent' \
+            --add-label 'ready'
