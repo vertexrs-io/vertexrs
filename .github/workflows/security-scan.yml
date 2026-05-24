@@ -1,0 +1,125 @@
+name: Security scan
+
+# Runs the Security agent on every PR. The agent reviews all changed files
+# against OWASP Top 10 and project security conventions (security.agent.md),
+# then writes security-report.md. This workflow distributes the report and
+# greps for SECURITY_SCAN_STATUS: FAIL to block the PR if critical issues exist.
+#
+# All review logic lives in .github/agents/security.agent.md — not here.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write   # post report comment; gracefully skipped for fork PRs
+
+env:
+  COPILOT_MODEL: claude-sonnet-4.6
+
+jobs:
+  security-scan:
+    name: Security scan
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checkout by immutable SHA — prevents TOCTOU if the branch is force-pushed.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Install Copilot CLI
+        run: npm install -g @github/copilot
+
+      # The agent reads all changed files, reviews them against security.agent.md,
+      # and writes security-report.md to the workspace root.
+      - name: Run Security agent
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
+          GH_TOKEN:             ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER:            ${{ github.event.pull_request.number }}
+        run: |
+          copilot \
+            --agent security \
+            --model "$COPILOT_MODEL" \
+            --prompt "Review PR #${PR_NUMBER} for security issues. \
+              Follow every step in .github/agents/security.agent.md exactly. \
+              Read all changed files, check against the criteria defined in the agent, \
+              then write a complete security-report.md to the workspace root. \
+              The report must include the SECURITY_SCAN_STATUS line as specified." \
+            --no-ask-user \
+            --allow-all-tools
+
+      # ── Distribute report ──────────────────────────────────────────────────
+
+      - name: Write job summary
+        if: always()
+        run: |
+          if [ -f security-report.md ]; then
+            cat security-report.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "**Security agent did not produce security-report.md.**" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-report
+          path: security-report.md
+          retention-days: 30
+
+      # Works for same-repo PRs; continue-on-error silently skips fork PRs.
+      - name: Post PR comment
+        if: always()
+        continue-on-error: true
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            if (!fs.existsSync('security-report.md')) {
+              core.warning('security-report.md not found — skipping PR comment');
+              return;
+            }
+            const raw  = fs.readFileSync('security-report.md', 'utf8');
+            const body = raw.length > 65000
+              ? raw.slice(0, 65000) + '\n\n*[Report truncated — download the full artifact]*'
+              : raw;
+
+            // Replace any previous security-scan comment to avoid accumulation.
+            const { data: comments } = await github.rest.issues.listComments({
+              owner:        context.repo.owner,
+              repo:         context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const prev = comments.find(
+              c => c.user.login === 'github-actions[bot]' &&
+                   c.body.includes('# Security Scan Report')
+            );
+            if (prev) {
+              await github.rest.issues.deleteComment({
+                owner:      context.repo.owner,
+                repo:       context.repo.repo,
+                comment_id: prev.id,
+              });
+            }
+            await github.rest.issues.createComment({
+              owner:        context.repo.owner,
+              repo:         context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });
+
+      # ── Block PR if the agent found critical issues ────────────────────────
+
+      - name: Fail on critical findings
+        run: |
+          if [ ! -f security-report.md ]; then
+            echo "::error::security-report.md was not produced. Check the Security agent step."
+            exit 1
+          fi
+          if grep -q "^SECURITY_SCAN_STATUS: FAIL" security-report.md; then
+            echo "::error::Security scan found critical issues — see the PR comment or Actions job summary."
+            exit 1
+          fi

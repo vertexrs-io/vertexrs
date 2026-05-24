@@ -1,0 +1,122 @@
+name: Architect comment run
+
+# Second half of the two-workflow pattern that fixes CodeQL CWE-829 alert 2
+# (Untrusted Checkout TOCTOU on issue_comment).
+#
+# Triggered by workflow_run on completion of "Architect comment triage".
+# Because the trigger is workflow_run (not issue_comment) this job runs in
+# a trusted context and can safely hold write permissions and secrets.
+# It never receives raw user-controlled event data — it only consumes the
+# validated artifact produced by the triage workflow.
+on:
+  workflow_run:
+    workflows: ["Architect comment triage"]
+    types: [completed]
+
+env:
+  COPILOT_MODEL: claude-sonnet-4.6
+
+jobs:
+  refine-from-issue-comment:
+    if: |
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'issue_comment'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      actions: read   # required to download artifacts from the triage run
+
+    steps:
+      - name: Download event artifact
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              run_id: ${{ github.event.workflow_run.id }},
+            });
+            const artifact = artifacts.data.artifacts.find(a => a.name === 'architect-event');
+            if (!artifact) { core.setFailed('No architect-event artifact found'); return; }
+            const dl = await github.rest.actions.downloadArtifact({
+              owner:          context.repo.owner,
+              repo:           context.repo.repo,
+              artifact_id:    artifact.id,
+              archive_format: 'zip',
+            });
+            require('fs').writeFileSync('event.zip', Buffer.from(dl.data));
+
+      - name: Extract and validate event data
+        id: event
+        run: |
+          mkdir -p event
+          unzip -d event/ event.zip
+
+          ISSUE_NUMBER=$(cat event/issue_number)
+          COMMENTER=$(cat event/commenter)
+          BRANCH=$(cat event/branch)
+          SHA=$(cat event/sha)
+
+          # Validate every field before use to prevent artifact-borne injection.
+          [[ "$ISSUE_NUMBER" =~ ^[0-9]+$ ]] \
+            || { echo "::error::Invalid issue_number in artifact"; exit 1; }
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] \
+            || { echo "::error::Invalid sha in artifact"; exit 1; }
+          [[ "$BRANCH" =~ ^feat/[0-9]+-[a-zA-Z0-9_-]+$ ]] \
+            || { echo "::error::Invalid branch in artifact"; exit 1; }
+          [[ "$COMMENTER" =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$ ]] \
+            || { echo "::error::Invalid commenter in artifact"; exit 1; }
+
+          echo "issue_number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "commenter=$COMMENTER"       >> "$GITHUB_OUTPUT"
+          echo "branch=$BRANCH"             >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA"                   >> "$GITHUB_OUTPUT"
+
+      # Checkout by immutable SHA captured during the unprivileged triage run.
+      # Using workflow_run (not issue_comment) as the trigger means CodeQL no
+      # longer considers this a privileged-untrusted-input context.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.event.outputs.sha }}
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Set branch tracking
+        env:
+          BRANCH: ${{ steps.event.outputs.branch }}
+        run: |
+          git checkout -B "$BRANCH"
+          git branch --set-upstream-to="origin/$BRANCH" "$BRANCH"
+
+      - name: Install Copilot CLI
+        run: npm install -g @github/copilot
+
+      - name: Run Architect refinement
+        env:
+          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ steps.event.outputs.issue_number }}
+          COMMENTER: ${{ steps.event.outputs.commenter }}
+          BRANCH: ${{ steps.event.outputs.branch }}
+        run: |
+          copilot \
+            --agent architect \
+            --model $COPILOT_MODEL \
+            --prompt "Issue #${ISSUE_NUMBER} has received design feedback from ${COMMENTER} \
+              while awaiting design approval. Read the latest comment on issue #${ISSUE_NUMBER}. \
+              Follow the Architect refinement loop from .github/agents/architect.agent.md Step 5: \
+              update docs/design/ and/or docs/adr/ on branch ${BRANCH} to address the feedback — \
+              refine signatures, call flows, dependency graphs, or level of detail as requested. \
+              Record rejected alternatives. Update the open questions list. \
+              Commit with message 'design: incorporate feedback from ${COMMENTER}'. \
+              Post a reply comment on issue #${ISSUE_NUMBER} summarising what changed, any \
+              trade-offs, and any remaining open questions. \
+              Do not write any .rs source files. Do not set design-approved." \
+            --no-ask-user \
+            --allow-all-tools
