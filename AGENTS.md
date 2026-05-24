@@ -1,5 +1,17 @@
 # Agent Instructions
 
+## Before every commit
+
+Run the full local CI gate and confirm it passes:
+
+```bash
+cargo make ci
+```
+
+This runs, in order: `check` → `fmt` → `lint` → `test` → `coverage` → `audit`.
+
+Do **not** commit if any step fails. Fix the failure first, then re-run `cargo make ci` in full before committing.
+
 ## Development workflow
 
 ```mermaid
@@ -89,7 +101,7 @@ When a `feat/*` PR is closed (merged or abandoned) the workflow re-evaluates the
 | `main` | Stable, releasable code. Plan checkpoints merged here infrequently and deliberately. |
 | `planning` | Long-lived. Holds the evolving plan files under `docs/plans/`. Never merged to `main` on a schedule — only at deliberate phase checkpoints. Regularly synced FROM `main` via an automated workflow (see below). |
 | `plan/<description>` | Short-lived session branches created from `planning`. Planner works here. Merged into `planning` via PR. Deleted after merge. |
-| `feature/<description>` | Short-lived implementation branches created from `main`. Implementer works here. Merged into `main` via PR. |
+| `feat/<description>` | Short-lived implementation branches created from `main`. Implementer works here. Merged into `main` via PR. |
 
 ## Keeping `planning` in sync with `main`
 
@@ -97,7 +109,7 @@ When a `feat/*` PR is closed (merged or abandoned) the workflow re-evaluates the
 
 ## Finding the current phase
 
-The build plan is split by phase under `docs/plans/`. The index lives at `docs/plans/main.md` — read it first to see the phase list and current status, then open the relevant phase file (e.g. `docs/plans/phase-02-benchmarks.md`) to find the current incomplete section. Always identify the current phase before planning or implementing anything.
+The build plan is split by phase under `docs/plans/`. The index lives at `docs/plans/main.md` — read it first to see the phase list and current status, then open the relevant phase file (e.g. `docs/plans/phase-02-macro-system.md`) to find the current incomplete section. Always identify the current phase before planning or implementing anything.
 
 ## Architectural decisions
 
@@ -117,15 +129,3 @@ Core design decisions are recorded in `docs/adr/`. Read the relevant ADR(s) befo
 | `.github/instructions/process/benchmarking.instructions.md` | Writing/reviewing benchmarks |
 | `.github/instructions/process/security.instructions.md` | Security-sensitive code |
 | `.github/instructions/process/pr-review.instructions.md` | Reviewing PRs |
-
-## Before every commit
-
-Run the full local CI gate and confirm it passes:
-
-```bash
-cargo make ci
-```
-
-This runs, in order: `check` → `fmt` → `lint` → `test` → `coverage` → `audit`.
-
-Do **not** commit if any step fails. Fix the failure first, then re-run `cargo make ci` in full before committing.

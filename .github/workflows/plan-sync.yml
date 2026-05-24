@@ -36,6 +36,7 @@ jobs:
                 r"^(- )\[ \]( .*<!-- #" + re.escape(issue) + r" -->)",
                 flags=re.MULTILINE,
             )
+            matched = False
             for plan_path in glob.glob("docs/plans/**/*.md", recursive=True):
                 with open(plan_path, "r") as f:
                     content = f.read()
@@ -44,8 +45,8 @@ jobs:
                     with open(plan_path, "w") as f:
                         f.write(updated)
                     print(f"Marked issue #{issue} complete in {plan_path}")
-                    break
-            else:
+                    matched = True
+            if not matched:
                 print(f"Checkbox for issue #{issue} was already checked or pattern did not match.")
         run: |
           # Check if this issue is annotated anywhere under docs/plans/

@@ -105,7 +105,7 @@ Rules:
 
 ## Benchmarking Policy
 
-Benchmarks live in `vertexrs/benches/` and are written using `criterion`. See `docs/plans/phase-02-benchmarks.md` for the full benchmark plan.
+Benchmarks live in `vertexrs/benches/` and are written using `criterion`. See `docs/plans/phase-02-macro-system.md` for the full benchmark plan.
 
 Key rules:
 - Benchmark new code paths on the recompute hot path before merging

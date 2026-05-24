@@ -51,8 +51,16 @@ jobs:
             --json number \
             --jq 'length')
 
-          USED=$(( READY + DESIGN + APPROVED ))
-          echo "Slots in use: $USED / $LIMIT  (ready=$READY, awaiting-design-approval=$DESIGN, design-approved=$APPROVED)"
+          # Also count open feat/* PRs — a slot remains in use until the PR is closed
+          OPEN_PRS=$(gh pr list \
+            --repo "$GITHUB_REPOSITORY" \
+            --state open \
+            --head 'feat/*' \
+            --json number \
+            --jq 'length')
+
+          USED=$(( READY + DESIGN + APPROVED + OPEN_PRS ))
+          echo "Slots in use: $USED / $LIMIT  (ready=$READY, awaiting-design-approval=$DESIGN, design-approved=$APPROVED, open_prs=$OPEN_PRS)"
           echo "used=$USED" >> "$GITHUB_OUTPUT"
           echo "limit=$LIMIT" >> "$GITHUB_OUTPUT"
 
