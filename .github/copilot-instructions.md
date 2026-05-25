@@ -204,6 +204,7 @@ bench    → cargo bench (main merges only: compare new vs previous main baselin
 | `.github/agents/architect.agent.md` | Architect agent mode |
 | `.github/agents/implementer.agent.md` | Implementer agent mode |
 | `.github/agents/reviewer.agent.md` | Reviewer agent mode |
+| `.github/agents/security.agent.md` | Security agent mode (PR security review) |
 
 ## Architectural Decision Records
 

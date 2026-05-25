@@ -36,3 +36,52 @@ description: "Security review checklist. Apply when writing or reviewing code th
 
 - Never hardcode secrets; pass via environment variables, Kubernetes Secrets, or Vault
 - Secrets must never appear in `PipelineDefinition` JSON or any serialised form
+
+## GitHub Actions / workflow security
+
+These rules apply to any file under `.github/workflows/`. The Security agent must apply them whenever a workflow file is added or modified.
+
+### Triggers and privilege
+
+- `pull_request` from forks runs with read-only `GITHUB_TOKEN` and **no secrets** — generally safe; not a sink for sensitive data
+- `pull_request_target`, `issue_comment`, `pull_request_review`, `workflow_run` run with **write tokens and secrets** in the base-repo context — every input must be treated as untrusted until validated
+- Never introduce `pull_request_target` without the two-workflow + artifact + API-refetch pattern documented in `architect-comment-receive.yml` / `architect-comment-run.yml`
+
+### Trusting the caller
+
+- Every privileged workflow that ingests user-supplied content must gate on `author_association ∈ {OWNER, MEMBER, COLLABORATOR}`
+- Trigger-time gates check the triggering actor; values resolved later (e.g. "latest comment", "all unresolved threads") may be from a different, untrusted actor — re-verify before use
+- GitHub usernames interpolated into agent prompts must be regex-validated against `^[A-Za-z0-9-]{1,39}$`
+
+### Checkout safety
+
+- `actions/checkout` `ref:` must be either a known-trusted constant (`main`, `planning`), an immutable SHA from `github.event.pull_request.head.sha`, or omitted (so it resolves to `github.sha`)
+- Never pass a branch name resolved from an `issue_comment` or `pull_request_review` payload as a checkout `ref:` — use the two-workflow pattern, capture a SHA via the API, and validate against `^[0-9a-f]{40}$`
+- After checkout, switch branches with plain `git fetch` / `git checkout <SHA>` — pin to the SHA, not the branch tip
+- Filter PR lookups by `head.repo.full_name == github.repository` to prevent fork branches with colliding names from being selected
+
+### Shell hygiene
+
+- Never use `${{ github.event.* }}` directly inside a `run:` block. Bind to an `env:` entry first; bash never word-splits env vars
+- Validate integer-only inputs with `[[ "$VAR" =~ ^[0-9]+$ ]]` before use
+- Validate SHAs with `[[ "$SHA" =~ ^[0-9a-f]{40}$ ]]` before use
+
+### Agent prompt content
+
+- Agent prompts must NOT include "read all comments", "read all reviews", or "read all threads" — these ingest content from any thread participant. Pin to a specific comment ID or review ID captured from the trigger event and re-fetched via the API
+- The triggering issue's author must be a trusted member before any agent reads its body
+- Any login, branch name, or other string interpolated into a prompt must be regex-validated
+
+### Artifact handling (workflow_run pattern)
+
+- Only opaque integer lookup keys (issue/comment/PR IDs) may be persisted to an artifact for a privileged consumer
+- The privileged consumer must (a) regex-validate the integer, (b) re-fetch the canonical data from the GitHub API using that ID, (c) cross-check the fetched object's referent (e.g. comment's `issue_url`) matches the artifact's other IDs
+- Never let an artifact-carried string flow into a checkout `ref:`, a shell command, or an agent prompt
+- Extract artifacts into `RUNNER_TEMP`, not the workspace; use `unzip -j` to flatten paths (blocks zip-slip)
+
+### Concurrency
+
+- Any workflow that pushes commits, manages a queue, or merges branches must declare a `concurrency:` block. Racing runs can lose work or exceed configured limits
+- Per-PR / per-issue groups for agent workflows (no cancel) so a second trigger waits rather than collides
+- Global group for shared-resource workflows (queue manager, branch syncer)
+- `cancel-in-progress: true` is appropriate for stateless CI / scan workflows where the latest push supersedes

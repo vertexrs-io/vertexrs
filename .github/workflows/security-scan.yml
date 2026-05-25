@@ -15,6 +15,12 @@ permissions:
   contents: read
   pull-requests: write   # post report comment; gracefully skipped for fork PRs
 
+# Cancel superseded runs on the same PR — a follow-up push should supersede
+# the in-flight scan; the previous one will not block on its own.
+concurrency:
+  group: security-scan-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 env:
   COPILOT_MODEL: claude-sonnet-4.6
 

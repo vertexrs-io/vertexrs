@@ -37,41 +37,42 @@ jobs:
             --jq '[.labels[].name] | any(. == "awaiting-design-approval")')
           echo "has_label=$HAS_LABEL" >> "$GITHUB_OUTPUT"
 
-      - name: Find linked draft PR
+      # Gate-only check: confirm an eligible draft feat/<issue>-* PR exists in
+      # this repo before we trigger the privileged runner. The runner re-fetches
+      # the PR's branch and SHA from the API, so we don't persist them here.
+      - name: Check linked draft PR exists
         id: pr
         if: steps.check.outputs.has_label == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
-          PR_JSON=$(gh pr list \
+          COUNT=$(gh pr list \
             --repo "$GITHUB_REPOSITORY" \
             --state open \
             --draft \
-            --json headRefName,headRefOid,headRepository \
-            --jq "[.[] | select(.headRefName | startswith(\"feat/${ISSUE_NUMBER}-\")) | select(.headRepository.nameWithOwner == \"$GITHUB_REPOSITORY\")] | .[0]")
-          BRANCH=$(echo "$PR_JSON" | jq -r '.headRefName // empty')
-          SHA=$(echo "$PR_JSON" | jq -r '.headRefOid // empty')
-          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
-          echo "sha=$SHA"       >> "$GITHUB_OUTPUT"
+            --json headRefName,headRepository \
+            --jq "[.[] | select(.headRepository.nameWithOwner == \"$GITHUB_REPOSITORY\") | select(.headRefName | startswith(\"feat/${ISSUE_NUMBER}-\"))] | length")
+          echo "exists=$([[ $COUNT -gt 0 ]] && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
       - name: Save event data for privileged runner
-        if: steps.check.outputs.has_label == 'true' && steps.pr.outputs.branch != ''
+        if: steps.check.outputs.has_label == 'true' && steps.pr.outputs.exists == 'true'
         env:
           ISSUE_NUMBER: ${{ github.event.issue.number }}
-          COMMENTER: ${{ github.event.comment.user.login }}
-          BRANCH: ${{ steps.pr.outputs.branch }}
-          SHA: ${{ steps.pr.outputs.sha }}
+          COMMENT_ID: ${{ github.event.comment.id }}
         run: |
           mkdir -p ./event
+          # Only integers are persisted — both are used solely as GitHub API
+          # lookup keys in the privileged runner, never as shell input or
+          # checkout refs. Branch, SHA, commenter, and comment body are all
+          # re-fetched from the API in run.yml, so artifact tampering cannot
+          # influence any privileged sink.
           # Write via env vars (not inline expressions) to keep shell safe from injection.
           printf '%s' "$ISSUE_NUMBER" > ./event/issue_number
-          printf '%s' "$COMMENTER"    > ./event/commenter
-          printf '%s' "$BRANCH"       > ./event/branch
-          printf '%s' "$SHA"          > ./event/sha
+          printf '%s' "$COMMENT_ID"   > ./event/comment_id
 
       - uses: actions/upload-artifact@v4
-        if: steps.check.outputs.has_label == 'true' && steps.pr.outputs.branch != ''
+        if: steps.check.outputs.has_label == 'true' && steps.pr.outputs.exists == 'true'
         with:
           name: architect-event
           path: event/

@@ -20,6 +20,11 @@ jobs:
       contents: write
       pull-requests: write
       issues: write
+    # Serialize per PR: opened+reopened back-to-back must not both run the
+    # planner agent and race on git push to the same plan/* branch.
+    concurrency:
+      group: planning-notify-pr-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
 
     steps:
       # Pin to immutable SHA — mutable branch ref is a TOCTOU vector.

@@ -21,6 +21,12 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+    # Serialize: concurrent runs both try to merge main → planning and push,
+    # producing non-fast-forward errors and potentially losing the AI-resolved
+    # conflict commit. One at a time.
+    concurrency:
+      group: planning-sync
+      cancel-in-progress: false
 
     steps:
       - name: Checkout planning branch

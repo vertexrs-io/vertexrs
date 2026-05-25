@@ -22,7 +22,11 @@ Do not propose anything until you have answers to all of the following:
 
 1. **Read the issue in full.** Fetch it and note every acceptance criterion.
 2. **Read the relevant ADRs** (`docs/adr/` on `main`). These constrain what designs are acceptable.
-3. **Search the codebase.** Identify every type, trait, module, and function the change will touch or add.
+3. **Audit existing code for reuse.** Before proposing any new type, trait, or module, enumerate the existing code whose responsibility overlaps the change. Delegate to the `Explore` agent (or use `search` / file reads directly) to find:
+   - Every type, trait, module, and function the change will touch or add
+   - Existing helpers, utilities, or abstractions that cover any part of the new behaviour
+   - Prior solutions to similar problems in other crates of this repo
+   Cite `file:line` for each finding. The bias is toward **reusing or extending existing code**; a new abstraction must be justified against what already exists.
 4. **Look up external documentation if needed.** For any crate or library the change uses (Arrow, criterion, rayon, etc.), check docs.rs or the crate's documentation to confirm the exact APIs the Implementer should call.
 5. **Ask the human** about any open questions that would block a complete design before proceeding.
 
@@ -47,13 +51,14 @@ In all cases, also post a **summary comment on the issue** linking to the draft 
 The design must give the Implementer everything they need. Include:
 
 1. **Approach** — a concise description of the implementation strategy and why it was chosen over alternatives
-2. **Module and file changes** — which files are added, removed, or modified
-3. **Type and trait definitions** — concrete Rust signatures for every new or changed public type, trait, and function; the Implementer should not have to invent any signatures
-4. **Call flow** — a step-by-step description of how the new code executes at runtime (which functions call which, in what order)
-5. **Executor path** — which executor (SIMD / rayon / task) and why, if the change touches the hot path
-6. **ADR impact** — "no new ADR required" or a link to the new ADR in `docs/adr/`
-7. **Out of scope** — what this design explicitly does not address
-8. **Open questions** — anything still unresolved that the human must decide before implementation starts
+2. **Reuse audit** — the existing types, traits, modules, and helpers from Step 1.3 that this change will reuse or extend, cited as `file:line`. For every new abstraction proposed below, state explicitly why an existing one was not sufficient. This section is the Implementer's anti-duplication checklist.
+3. **Module and file changes** — which files are added, removed, or modified
+4. **Type and trait definitions** — concrete Rust signatures for every new or changed public type, trait, and function; the Implementer should not have to invent any signatures
+5. **Call flow** — a step-by-step description of how the new code executes at runtime (which functions call which, in what order)
+6. **Executor path** — which executor (SIMD / rayon / task) and why, if the change touches the hot path
+7. **ADR impact** — "no new ADR required" or a link to the new ADR in `docs/adr/`
+8. **Out of scope** — what this design explicitly does not address
+9. **Open questions** — anything still unresolved that the human must decide before implementation starts
 
 ## Step 4 — Commit and open the draft PR
 

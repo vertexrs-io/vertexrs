@@ -33,16 +33,44 @@ Every issue must include these sections (use the feature issue template):
    - Describe an observable outcome (return value, state change, error raised, property preserved) — not an implementation detail
    - Be specific enough that a test name and a single assertion can be written from it alone
    - Be verifiable by CI, a test assertion, or unambiguous code review — not by subjective judgment
+   - Be relevant to the feature — not generic boilerplate like "the code should compile" or "coverage should be maintained"
 
    Minimum three criteria. A strong AC drives a test; a weak AC drives nothing. If you cannot write a test assertion from an AC, rewrite it.
+
+   **Good AC:** `Given a ChunkedColumn with dirty chunks at [0, 2], when recompute() is called, only chunks 0 and 2 are passed to the kernel; chunk 1 is not recomputed.`
+   **Bad AC:** `The dirty-chunk tracking logic should be correct.`
+
+   A good issue with three strong ACs is better than one with ten vague ones.
 4. **Affected crates** — `vertexrs`, `vertexrs-macro`, or both
 5. **Relevant ADRs** — list any `docs/adr/` records that constrain the design
 6. **Out of scope** — what this issue deliberately does not do
 
 ## Labels
 
-Apply exactly one primary label: `enhancement`, `bug`, `refactor`, `docs`, `perf`.
-Apply one phase label: `phase-1` through `phase-9` (public) or `phase-10`/`phase-11` (internal).
+Every issue created by the Planner must carry **all three** of:
+
+- One primary label: `enhancement`, `bug`, `refactor`, `docs`, `perf`
+- One phase label: `phase-1` through `phase-9` (public) or `phase-10`/`phase-11` (internal)
+- The lifecycle entry label: `queued`
+
+Apply `trivial` additionally when the trivial criteria below are met.
+
+## Label lifecycle
+
+Every issue moves through this sequence; each transition is gated:
+
+| State | Set by | Means |
+|---|---|---|
+| `queued` | Planner (at creation) | Issue exists but no agent should act yet |
+| `awaiting-agent` | **Human** (manual) | Human has approved the issue for agent execution |
+| `ready` | Queue bot (`implementer-queue.yml`) | A slot is free; the Architect (non-trivial) or Implementer (trivial) should pick it up |
+| `awaiting-design-approval` | Architect (after posting design) | Draft PR is open; awaiting human design sign-off |
+| `design-approved` | **Human** (manual) | Implementer may now build the design |
+
+Notes:
+- `awaiting-agent` and `design-approved` are the only transitions that require a human; agents must never apply these
+- `ready` is bot-applied so the Architect/Implementer workflows can distinguish bot-driven promotion from manual labelling
+- The label sequence is the source of truth for which agent runs next — workflows gate on both the label and the `sender.type` / `sender.login` of the change
 
 ## Trivial vs non-trivial classification
 

@@ -30,6 +30,13 @@ These must be fixed before the PR merges:
 | **New dependency without justification** | An entry added to `Cargo.toml` at the `[dependencies]` or `[workspace.dependencies]` level that has no `# <justification>` comment |
 | **`pull_request_target` trigger** | Any new workflow using `pull_request_target` without the two-workflow artifact pattern — flag for human review |
 | **Untrusted input in shell** | `${{ github.event.* }}` used directly in a `run:` shell step (use `env:` intermediary instead) |
+| **Untrusted ref in `actions/checkout`** | `ref:` on `actions/checkout` traced to an `issue_comment` or `pull_request_review` payload without the two-workflow + artifact + API-refetch + 40-char-hex SHA validation pattern |
+| **Missing `author_association` gate on agent input** | Any workflow that feeds an issue body, comment body, or PR review thread into an agent prompt (Copilot, custom LLM, etc.) without validating the author's `author_association` is `OWNER`, `MEMBER`, or `COLLABORATOR`. Trigger-time gates are not enough — values resolved later (e.g. fetching "latest comment", "all unresolved threads") must be re-verified against the trusted author set |
+| **Unscoped agent reading** | Agent prompts that say "read all comments", "read all unresolved review threads", "read every comment on the issue" — these ingest content from any thread participant, including non-members. Prompts must pin to a specific comment ID / review ID captured from the trigger event |
+| **Artifact data in privileged sink** | Values extracted from a `workflow_run` artifact used as a checkout `ref:`, in a shell command, or interpolated into an agent prompt without (a) regex-validating the value AND (b) re-fetching the canonical value from the GitHub API. Only opaque integer lookup keys (issue/comment/PR IDs) may flow through the artifact, and only to drive API calls |
+| **Same-repo PR filter missing** | A privileged step that operates on a PR's head ref/SHA without filtering `head.repo.full_name == github.repository` — a fork PR with a colliding branch name can otherwise be picked up |
+| **Login interpolated without validation** | A GitHub username (`*.user.login`, `*.commenter`, `*.reviewer`) interpolated into an agent prompt without a `^[A-Za-z0-9-]{1,39}$` regex check |
+| **Missing `concurrency:` on a pushing workflow** | A workflow that pushes commits, manages a queue, or merges branches without a `concurrency:` block — concurrent runs can race on the same branch / queue state and lose work or exceed configured limits |
 
 ### Warnings — note in report but do not set FAIL
 
@@ -90,7 +97,11 @@ SECURITY_SCAN_STATUS: PASS   ← change to FAIL if any blocking issue found
 | `unwrap`/`expect` in lib code | ✅ / ⚠️ N found |
 | Hardcoded secrets | ✅ / ⚠️ N found |
 | New dependencies | ✅ / ⚠️ N found |
-| Workflow YAML | ✅ / ⚠️ N found |
+| Workflow YAML — triggers and refs | ✅ / ⚠️ N found |
+| Workflow YAML — author trust gates | ✅ / ⚠️ N found |
+| Workflow YAML — agent prompt scoping | ✅ / ⚠️ N found |
+| Workflow YAML — artifact handling | ✅ / ⚠️ N found |
+| Workflow YAML — concurrency | ✅ / ⚠️ N found |
 
 ---
 

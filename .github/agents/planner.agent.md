@@ -73,55 +73,18 @@ When invoked to create issues (inline after planning):
 9. Create approved issues one at a time.
 10. **Annotate the plan.** On the `planning` branch, add `<!-- #N -->` inline at the end of each checkbox line covered by the new issue in the relevant phase file. Commit with message `plan: annotate issues for Phase X.Y`.
 
-## Issue quality bar
+## Content, label, and classification rules
 
-Every issue must satisfy all of the following before creation:
+This agent file owns the *workflow and behaviour*. The *rules* — issue content sections, sizing, AC quality, labels, the label lifecycle, trivial classification, and plan annotation — live in `.github/instructions/process/planning.instructions.md`. Read that file once at the start of every issue-creation session and apply every rule it specifies. Do not duplicate or paraphrase those rules here.
 
-- [ ] Phase reference links to a specific checkbox in the relevant `docs/plans/phase-XX-*.md` file
-- [ ] Summary is one clear paragraph that explains **what** and **why** — not just what to build, but why it matters in the context of the phase goal
-- [ ] At least three acceptance criteria (see AC quality below)
-- [ ] Affected crates listed
-- [ ] Relevant ADRs listed
-- [ ] Out-of-scope section present
-- [ ] Estimated at ≤ 400 LOC changed (single PR scope)
-- [ ] Labels applied: one primary (`enhancement`, `bug`, `refactor`, `docs`, `perf`) + one phase label + `queued`
-- [ ] If the issue is trivial (see below), also apply the `trivial` label
-
-If any item fails the quality bar, fix it before creating the issue.
-
-## Acceptance criteria quality
-
-ACs are the contract between you and the Implementer. They will be directly translated into tests — the Implementer writes a failing test for each AC before writing any implementation code. Write them as **observable outcomes**, not implementation instructions.
-
-**Good AC:** `Given a ChunkedColumn with dirty chunks at [0, 2], when recompute() is called, only chunks 0 and 2 are passed to the kernel; chunk 1 is not recomputed.`
-**Bad AC:** `The dirty-chunk tracking logic should be correct.`
-
-Each AC must:
-- Describe a behaviour observable from outside the function (return value, state change, error raised, property preserved)
-- Be specific enough that a test name and a single assertion can be written from it directly
-- Be verifiable by CI, a test assertion, or unambiguous code review — not by subjective judgment
-- Be relevant to the feature — not generic boilerplate like "the code should compile" or "coverage should be maintained"
-
-A good issue with three strong ACs is better than one with ten vague ones. If you cannot write a test assertion from an AC, rewrite it until you can.
-
-## Trivial vs non-trivial classification
-
-Apply the `trivial` label (alongside `queued`) when **all** of the following are true:
-
-- The change is contained within a single crate and a single module
-- No new public API, trait, or type is introduced
-- No ADR is needed
-- The implementation approach is unambiguous from the acceptance criteria alone
-- Estimated change is ≤ 50 LOC
-
-If any criterion is not met, do not apply `trivial`. Non-trivial issues go through the Architect before implementation begins. When in doubt, omit `trivial` — the Architect stage has low cost and high value.
+If an issue you are about to create does not satisfy every rule in `planning.instructions.md`, do not create it — fix the issue first.
 
 ## Output
 
 A completed planning session produces:
 - Updated checkboxes and sub-tasks in the relevant `docs/plans/phase-XX-*.md` file(s), and the index `docs/plans/main.md`, committed to the session branch
 - A PR from `plan/<short-description>` → `planning`
-- GitHub issues labelled `queued` (and `trivial` where applicable) with `<!-- #N -->` annotations back in the plan files
+- GitHub issues that satisfy the content and label rules in `planning.instructions.md`, with `<!-- #N -->` annotations back in the plan files
 
 The PR description must list:
 - Which phase and sub-tasks were added or changed

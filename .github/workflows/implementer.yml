@@ -28,8 +28,47 @@ jobs:
       contents: write
       pull-requests: write
       issues: write
+    # Serialize per issue: two label/dispatch triggers for the same issue
+    # must not both spawn implementers that race on git push to the same
+    # feat/* branch.
+    concurrency:
+      group: implementer-issue-${{ github.event.issue.number || inputs.issue_number }}
+      cancel-in-progress: false
 
     steps:
+      # Resolve the effective issue number once, from the trigger event, and
+      # validate it as a plain integer before it reaches any shell or API call.
+      - name: Resolve and validate issue number
+        id: issue
+        env:
+          RAW_ISSUE_NUMBER: ${{ github.event_name == 'workflow_dispatch' && inputs.issue_number || github.event.issue.number }}
+        run: |
+          [[ "$RAW_ISSUE_NUMBER" =~ ^[0-9]+$ ]] \
+            || { echo "::error::Issue number '${RAW_ISSUE_NUMBER}' is not a positive integer"; exit 1; }
+          echo "number=$RAW_ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
+
+      # The Implementer reads the issue title, body, and any existing comments
+      # with --allow-all-tools and COPILOT_PAT in scope. Issue bodies are
+      # attacker-controllable when the opener is not a member, which makes
+      # them a prompt-injection vector — the label/dispatch gates only check
+      # who promoted the issue, not who opened it. Require the opener to be
+      # a trusted member; non-member issues must be curated/re-filed by a
+      # member before the Implementer can process them.
+      - name: Verify issue author is trusted
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ steps.issue.outputs.number }}
+        run: |
+          ASSOC=$(gh api "repos/$GITHUB_REPOSITORY/issues/${ISSUE_NUMBER}" \
+            --jq '.author_association')
+          case "$ASSOC" in
+            OWNER|MEMBER|COLLABORATOR) ;;
+            *)
+              echo "::error::Issue #${ISSUE_NUMBER} opener author_association is '${ASSOC}'. A member must curate and re-file external issues before the Implementer can process them."
+              exit 1
+              ;;
+          esac
+
       # For 'ready' label: only proceed if the issue also has 'trivial'.
       # Non-trivial issues go through the Architect first and arrive here via 'design-approved'.
       - name: Check trigger condition
@@ -40,7 +79,7 @@ jobs:
           # Label names can contain shell metacharacters; env vars are never word-split.
           EVENT_NAME: ${{ github.event_name }}
           LABEL_NAME: ${{ github.event.label.name }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_NUMBER: ${{ steps.issue.outputs.number }}
         run: |
           if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             echo "proceed=true" >> "$GITHUB_OUTPUT"
@@ -83,7 +122,7 @@ jobs:
         env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ISSUE_NUMBER: ${{ github.event_name == 'workflow_dispatch' && inputs.issue_number || github.event.issue.number }}
+          ISSUE_NUMBER: ${{ steps.issue.outputs.number }}
         run: |
           copilot \
             --agent implementer \

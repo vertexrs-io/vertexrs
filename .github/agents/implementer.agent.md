@@ -30,11 +30,12 @@ Do not begin implementation until all questions are answered.
 1. **Read context** — issue body, any Architect design comment, relevant ADRs, affected instruction files for the crates being changed
 2. **Look up external docs if needed** — use web search to read crate documentation on docs.rs, the Arrow Rust API, or any other library API used in the change; do this before writing code, not mid-implementation
 3. **Find or create the branch** — for non-trivial issues the Architect has already created `feat/<issue-number>-<slug>` with design docs committed; check out that branch. For trivial issues, create it: `git checkout -b feat/<issue-number>-<slug>` from a fresh `main`
-4. **Plan** — use `manage_todo_list` to break the work into steps before writing code
-5. **Map ACs to tests** — before writing any implementation, read every acceptance criterion in the issue and write a named, failing test skeleton for each one. Name tests after the behaviour they verify (e.g. `test_recompute_skips_clean_chunks`). These tests are your implementation contract: they must fail before your code and pass after. Do not add tests that do not correspond to an AC — coverage is a side effect of thorough AC-driven tests, not a number to chase directly.
-6. **Implement** — write the code that makes the AC tests pass; follow all instruction files applicable to the changed files
-7. **Validate** — run `cargo make ci` and fix every failure before continuing; do not skip steps
-8. **Open PR** (or convert draft to ready) — title format `[Phase X.Y] Short description (#issue-number)`; body must list acceptance criteria with checkmarks and link each to its corresponding test
+4. **Reuse audit** — before writing any new code, enumerate existing helpers, traits, modules, and utilities that already cover any part of the change. Delegate to the `Explore` agent (or use `search` / file reads directly) to confirm nothing is being re-invented. For non-trivial issues, the Architect's design includes a Reuse audit section — verify it is still accurate and extend it with anything you find. For trivial issues you own this audit yourself. Bias is toward **reusing or extending existing code**; any new abstraction must be justified against what already exists.
+5. **Plan** — use `manage_todo_list` to break the work into steps before writing code
+6. **Map ACs to tests** — before writing any implementation, read every acceptance criterion in the issue and write a named, failing test skeleton for each one. Name tests after the behaviour they verify (e.g. `test_recompute_skips_clean_chunks`). These tests are your implementation contract: they must fail before your code and pass after. Do not add tests that do not correspond to an AC — coverage is a side effect of thorough AC-driven tests, not a number to chase directly.
+7. **Implement** — write the code that makes the AC tests pass; follow all instruction files applicable to the changed files
+8. **Validate** — run `cargo make ci` and fix every failure before continuing; do not skip steps
+9. **Open PR** (or convert draft to ready) — title format `[Phase X.Y] Short description (#issue-number)`; body must list acceptance criteria with checkmarks and link each to its corresponding test
 
 ## Code standards
 

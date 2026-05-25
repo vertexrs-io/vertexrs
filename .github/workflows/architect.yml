@@ -21,20 +21,43 @@ jobs:
       issues: write
 
     steps:
+      - name: Verify issue author is trusted
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          # The Architect agent reads the issue title, body, and any existing
+          # comments with --allow-all-tools and COPILOT_PAT in scope. Issue
+          # bodies are attacker-controllable when the opener is not a member,
+          # which makes them a prompt-injection vector even though the 'ready'
+          # label itself is bot-applied. Require the opener to be a trusted
+          # member; non-member issues must be curated/re-filed by a member
+          # before the scheduler can promote them.
+          ASSOC=$(gh api "repos/$GITHUB_REPOSITORY/issues/${ISSUE_NUMBER}" \
+            --jq '.author_association')
+          case "$ASSOC" in
+            OWNER|MEMBER|COLLABORATOR) ;;
+            *)
+              echo "::error::Issue #${ISSUE_NUMBER} opener author_association is '${ASSOC}'. A member must curate and re-file external issues before Architect can process them."
+              exit 1
+              ;;
+          esac
+
       - name: Check for trivial label
         id: check
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
-          HAS_TRIVIAL=$(gh issue view "${{ github.event.issue.number }}" \
+          HAS_TRIVIAL=$(gh issue view "$ISSUE_NUMBER" \
             --repo "$GITHUB_REPOSITORY" \
             --json labels \
             --jq '[.labels[].name] | any(. == "trivial")')
           echo "trivial=$HAS_TRIVIAL" >> "$GITHUB_OUTPUT"
           if [ "$HAS_TRIVIAL" = "true" ]; then
-            echo "Issue #${{ github.event.issue.number }} is trivial — Architect not required, Implementer will handle it."
+            echo "Issue #${ISSUE_NUMBER} is trivial — Architect not required, Implementer will handle it."
           else
-            echo "Issue #${{ github.event.issue.number }} is non-trivial — running Architect."
+            echo "Issue #${ISSUE_NUMBER} is non-trivial — running Architect."
           fi
 
       - uses: actions/checkout@v4

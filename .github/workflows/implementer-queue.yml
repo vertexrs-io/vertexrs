@@ -21,6 +21,12 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       issues: write
+    # Serialize all promotions: two concurrent triggers must not both
+    # observe the same free slot and double-promote past the configured
+    # concurrency limit.
+    concurrency:
+      group: implementer-queue
+      cancel-in-progress: false
 
     steps:
       - name: Count in-flight slots

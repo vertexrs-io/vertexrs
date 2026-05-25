@@ -16,15 +16,20 @@ jobs:
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
-          # Accept any of: closes/fixes/resolves #N, or a plain #N reference, or a full GitHub issue URL
-          PATTERN='(closes|fixes|resolves)[[:space:]]+#[0-9]+|#[0-9]+|github\.com/[^/]+/[^/]+/issues/[0-9]+'
+          # Require an explicit GitHub closing keyword. A bare '#42' in prose
+          # (e.g. "thanks to PR #42") is not a linkage and is not accepted —
+          # we want the issue to auto-close on merge, which only happens for
+          # the documented closing keywords.
+          # Closing keywords per GitHub: close, closes, closed, fix, fixes,
+          # fixed, resolve, resolves, resolved.
+          PATTERN='(close[sd]?|fix(es|ed)?|resolve[sd]?)[[:space:]]+#[0-9]+|(close[sd]?|fix(es|ed)?|resolve[sd]?)[[:space:]]+https?://github\.com/[^/]+/[^/]+/issues/[0-9]+'
 
           if echo "$PR_BODY" | grep -iE "$PATTERN" > /dev/null; then
             echo "Issue reference found in PR body."
           elif echo "$PR_TITLE" | grep -iE "$PATTERN" > /dev/null; then
             echo "Issue reference found in PR title."
           else
-            echo "ERROR: This PR must reference a linked issue."
-            echo "Include a reference such as 'Closes #123' or 'Fixes #456' in the PR title or body."
+            echo "ERROR: This PR must reference a linked issue using a GitHub closing keyword."
+            echo "Use a phrase like 'Closes #123', 'Fixes #456', or 'Resolves https://github.com/owner/repo/issues/789' in the PR title or body."
             exit 1
           fi
