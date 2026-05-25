@@ -56,7 +56,12 @@ jobs:
               artifact_id:    artifact.id,
               archive_format: 'zip',
             });
-            require('fs').writeFileSync('event.zip', Buffer.from(dl.data));
+            // Write to RUNNER_TEMP, not the workspace, so the artifact cannot
+            // override any workspace file that could later be executed.
+            require('fs').writeFileSync(
+              process.env.RUNNER_TEMP + '/event.zip',
+              Buffer.from(dl.data)
+            );
 
       # Extract only the issue number from the artifact — used solely as a
       # pointer to query the GitHub API. All sensitive values (SHA, branch,
@@ -67,10 +72,13 @@ jobs:
       - name: Extract issue number from artifact
         id: artifact
         run: |
-          mkdir -p event
-          unzip -d event/ event.zip
+          # Extract into RUNNER_TEMP (not the workspace) so artifact contents
+          # cannot override existing workspace files.
+          # -j junks internal zip paths, blocking zip-slip path-traversal attacks.
+          mkdir -p "$RUNNER_TEMP/event"
+          unzip -j -d "$RUNNER_TEMP/event/" "$RUNNER_TEMP/event.zip"
 
-          ISSUE_NUMBER=$(cat event/issue_number)
+          ISSUE_NUMBER=$(cat "$RUNNER_TEMP/event/issue_number")
           [[ "$ISSUE_NUMBER" =~ ^[0-9]+$ ]] \
             || { echo "::error::Invalid issue_number in artifact"; exit 1; }
 
