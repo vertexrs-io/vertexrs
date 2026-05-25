@@ -6,8 +6,12 @@ name: Architect comment run
 # Triggered by workflow_run on completion of "Architect comment triage".
 # Because the trigger is workflow_run (not issue_comment) this job runs in
 # a trusted context and can safely hold write permissions and secrets.
-# It never receives raw user-controlled event data — it only consumes the
-# validated artifact produced by the triage workflow.
+#
+# Artifact-poisoning fix: the artifact only carries issue_number (an integer
+# used as an API lookup key). All values that flow into privileged sinks
+# (SHA for checkout, branch name, commenter) are sourced from the GitHub API
+# in the "Fetch PR data" step — never from the artifact — so CodeQL sees no
+# tainted data reaching a privileged operation.
 on:
   workflow_run:
     workflows: ["Architect comment triage"]
@@ -48,62 +52,97 @@ jobs:
             });
             require('fs').writeFileSync('event.zip', Buffer.from(dl.data));
 
-      - name: Extract and validate event data
-        id: event
+      # Extract only the issue number from the artifact — used solely as a
+      # pointer to query the GitHub API. All sensitive values (SHA, branch,
+      # commenter) are fetched directly from the GitHub API in the next step
+      # so that no artifact-sourced data ever flows into a privileged sink
+      # (checkout ref or shell execution), eliminating the artifact-poisoning
+      # taint chain that CodeQL flags.
+      - name: Extract issue number from artifact
+        id: artifact
         run: |
           mkdir -p event
           unzip -d event/ event.zip
 
           ISSUE_NUMBER=$(cat event/issue_number)
-          COMMENTER=$(cat event/commenter)
-          BRANCH=$(cat event/branch)
-          SHA=$(cat event/sha)
-
-          # Validate every field before use to prevent artifact-borne injection.
           [[ "$ISSUE_NUMBER" =~ ^[0-9]+$ ]] \
             || { echo "::error::Invalid issue_number in artifact"; exit 1; }
-          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] \
-            || { echo "::error::Invalid sha in artifact"; exit 1; }
-          [[ "$BRANCH" =~ ^feat/[0-9]+-[a-zA-Z0-9_-]+$ ]] \
-            || { echo "::error::Invalid branch in artifact"; exit 1; }
-          [[ "$COMMENTER" =~ ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$ ]] \
-            || { echo "::error::Invalid commenter in artifact"; exit 1; }
 
           echo "issue_number=$ISSUE_NUMBER" >> "$GITHUB_OUTPUT"
-          echo "commenter=$COMMENTER"       >> "$GITHUB_OUTPUT"
-          echo "branch=$BRANCH"             >> "$GITHUB_OUTPUT"
-          echo "sha=$SHA"                   >> "$GITHUB_OUTPUT"
 
-      # Checkout by immutable SHA captured during the unprivileged triage run.
-      # Using workflow_run (not issue_comment) as the trigger means CodeQL no
-      # longer considers this a privileged-untrusted-input context.
+      # All data used in privileged operations (SHA for checkout, branch name
+      # for git, commenter for the agent prompt) comes from the GitHub API —
+      # a trusted source — not from the artifact.
+      - name: Fetch PR data from GitHub API
+        id: pr_data
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ steps.artifact.outputs.issue_number }}
+        run: |
+          # Guard: issue must still have awaiting-design-approval label.
+          HAS_LABEL=$(gh issue view "$ISSUE_NUMBER" \
+            --repo "$GITHUB_REPOSITORY" \
+            --json labels \
+            --jq '[.labels[].name] | any(. == "awaiting-design-approval")')
+          if [ "$HAS_LABEL" != "true" ]; then
+            echo "::notice::Issue #$ISSUE_NUMBER no longer has awaiting-design-approval — skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Find the open draft feat/ PR linked to this issue by branch convention.
+          PR_DATA=$(gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&per_page=100" \
+            --jq "[.[] | select(.head.ref | startswith(\"feat/${ISSUE_NUMBER}-\"))] | first | {sha: .head.sha, branch: .head.ref}")
+
+          if [ -z "$PR_DATA" ] || [ "$PR_DATA" = "null" ]; then
+            echo "::error::No open feat/${ISSUE_NUMBER}-* PR found"
+            exit 1
+          fi
+
+          SHA=$(echo "$PR_DATA"    | jq -r '.sha')
+          BRANCH=$(echo "$PR_DATA" | jq -r '.branch')
+
+          # Get the author of the most recent comment on the issue.
+          COMMENTER=$(gh api "repos/$GITHUB_REPOSITORY/issues/${ISSUE_NUMBER}/comments" \
+            --jq 'last | .user.login')
+
+          echo "sha=$SHA"               >> "$GITHUB_OUTPUT"
+          echo "branch=$BRANCH"         >> "$GITHUB_OUTPUT"
+          echo "commenter=$COMMENTER"   >> "$GITHUB_OUTPUT"
+          echo "skip=false"             >> "$GITHUB_OUTPUT"
+
       - uses: actions/checkout@v4
+        if: steps.pr_data.outputs.skip != 'true'
         with:
-          ref: ${{ steps.event.outputs.sha }}
+          ref: ${{ steps.pr_data.outputs.sha }}
           fetch-depth: 0
 
       - name: Configure git
+        if: steps.pr_data.outputs.skip != 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Set branch tracking
+        if: steps.pr_data.outputs.skip != 'true'
         env:
-          BRANCH: ${{ steps.event.outputs.branch }}
+          BRANCH: ${{ steps.pr_data.outputs.branch }}
         run: |
           git checkout -B "$BRANCH"
           git branch --set-upstream-to="origin/$BRANCH" "$BRANCH"
 
       - name: Install Copilot CLI
+        if: steps.pr_data.outputs.skip != 'true'
         run: npm install -g @github/copilot
 
       - name: Run Architect refinement
+        if: steps.pr_data.outputs.skip != 'true'
         env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ISSUE_NUMBER: ${{ steps.event.outputs.issue_number }}
-          COMMENTER: ${{ steps.event.outputs.commenter }}
-          BRANCH: ${{ steps.event.outputs.branch }}
+          ISSUE_NUMBER: ${{ steps.artifact.outputs.issue_number }}
+          COMMENTER: ${{ steps.pr_data.outputs.commenter }}
+          BRANCH: ${{ steps.pr_data.outputs.branch }}
         run: |
           copilot \
             --agent architect \
