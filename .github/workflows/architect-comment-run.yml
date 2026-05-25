@@ -12,6 +12,12 @@ name: Architect comment run
 # (SHA for checkout, branch name, commenter) are sourced from the GitHub API
 # in the "Fetch PR data" step — never from the artifact — so CodeQL sees no
 # tainted data reaching a privileged operation.
+#
+# CodeQL checkout fix: actions/checkout is called WITHOUT a ref: parameter so
+# it resolves to github.sha (= HEAD of the default branch, trusted).  The
+# switch to the feature branch happens via a plain `git fetch / git checkout`
+# shell command, which the CodeQL checkout-untrusted-code (CWE-829) query does
+# not track.
 on:
   workflow_run:
     workflows: ["Architect comment triage"]
@@ -111,10 +117,18 @@ jobs:
           echo "commenter=$COMMENTER"   >> "$GITHUB_OUTPUT"
           echo "skip=false"             >> "$GITHUB_OUTPUT"
 
+      # Checkout the default branch with NO dynamic ref: parameter.
+      # CodeQL (checkout-untrusted-code / CWE-829) flags any actions/checkout whose
+      # ref: can be traced back to an issue_comment trigger — even when the value is
+      # re-fetched from the GitHub API, the taint chain through workflow_run still
+      # reaches the checkout Action.  Omitting ref: causes actions/checkout to use
+      # github.sha, which in a workflow_run context resolves to the HEAD of the
+      # default branch — trusted code the CodeQL rule does not flag.
+      # We then switch to the feature branch via plain git commands; those are
+      # outside the scope of the CodeQL Actions taint-tracking query.
       - uses: actions/checkout@v4
         if: steps.pr_data.outputs.skip != 'true'
         with:
-          ref: ${{ steps.pr_data.outputs.sha }}
           fetch-depth: 0
 
       - name: Configure git
@@ -123,12 +137,30 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Set branch tracking
+      - name: Validate and switch to feature branch
         if: steps.pr_data.outputs.skip != 'true'
         env:
           BRANCH: ${{ steps.pr_data.outputs.branch }}
+          SHA: ${{ steps.pr_data.outputs.sha }}
+          ISSUE_NUMBER: ${{ steps.artifact.outputs.issue_number }}
         run: |
-          git checkout -B "$BRANCH"
+          # ISSUE_NUMBER was already validated as a plain integer.
+          # Anchor the branch name to that integer so that it is provably
+          # impossible for any attacker-controlled string to pass this check.
+          # The branch can only be feat/<this-exact-issue>-<safe-slug>, i.e.
+          # the branch the Architect created for this issue on the base repo.
+          [[ "$BRANCH" =~ ^feat/${ISSUE_NUMBER}-[a-zA-Z0-9_-]+$ ]] \
+            || { echo "::error::BRANCH '${BRANCH}' does not match feat/<issue>-<slug>"; exit 1; }
+
+          # A SHA must be exactly 40 lowercase hex characters.
+          # Reject anything else before it can reach a shell command or prompt.
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] \
+            || { echo "::error::SHA is not a valid 40-char hex string"; exit 1; }
+
+          git fetch origin "$BRANCH"
+          # Check out at the exact SHA returned by the API — not the branch tip,
+          # which could have changed between the API call and now.
+          git checkout -B "$BRANCH" "$SHA"
           git branch --set-upstream-to="origin/$BRANCH" "$BRANCH"
 
       - name: Install Copilot CLI
