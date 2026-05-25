@@ -65,7 +65,7 @@ Each stage has a dedicated agent mode (`.github/agents/`):
 | Plan + Backlog | `Planner` | Works with the human through Q&A to define and refine the plan; writes plan files; creates GitHub issues labelled `queued` (± `trivial`); annotates plan files with issue numbers; commits to a `plan/*` session branch; opens PR into `planning` |
 | Schedule | Workflow | `implementer-queue.yml` — fires on `awaiting-agent` label and on `feat/*` PR close; promotes the oldest `awaiting-agent` issue to `ready` when the slot count is below the limit |
 | Design | `Architect` | Triggered by `ready` on non-trivial issues; creates `feat/<issue-number>-<slug>` branch from `main`, commits design docs (`docs/design/`, `docs/adr/` if needed), opens a draft PR to `main`, posts a design summary on the issue, sets `awaiting-design-approval` |
-| Design refinement | `Architect` | Re-triggered by `architect-response.yml` on any PR review or issue comment while `awaiting-design-approval`; updates design docs, commits, posts a reply — repeats until human sets `design-approved` |
+| Design refinement | `Architect` | Re-triggered by `architect-response.yml` (PR reviews) or `architect-comment-receive.yml`/`architect-comment-run.yml` (issue comments) while `awaiting-design-approval`; updates design docs, commits, posts a reply — repeats until human sets `design-approved` |
 | Implement | `Implementer` | Triggered by `ready` (trivial) or `design-approved` (non-trivial); picks up the existing `feat/*` branch (or creates it for trivial), implements, runs CI, converts draft PR to ready |
 | Review | `Reviewer` | Reads the PR diff, checks against instructions and ADRs, posts comments — never touches code |
 | Approve | **Human** | Final approval and merge; agents never merge |

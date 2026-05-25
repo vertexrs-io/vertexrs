@@ -28,6 +28,9 @@ jobs:
   security-scan:
     name: Security scan
     runs-on: ubuntu-latest
+    # Skip fork PRs: secrets.COPILOT_PAT is unavailable there and the agent
+    # step would fail rather than degrade gracefully.
+    if: github.event.pull_request.head.repo.full_name == github.repository
 
     steps:
       # Checkout by immutable SHA — prevents TOCTOU if the branch is force-pushed.

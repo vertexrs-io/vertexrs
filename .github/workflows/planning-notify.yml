@@ -43,6 +43,10 @@ jobs:
         env:
           BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
+          # Explicitly fetch the remote branch so origin/$BRANCH is present
+          # before --set-upstream-to; actions/checkout with ref:<sha> may not
+          # populate the remote-tracking ref for every branch.
+          git fetch origin "$BRANCH"
           git checkout -B "$BRANCH"
           git branch --set-upstream-to="origin/$BRANCH" "$BRANCH"
 
@@ -68,7 +72,7 @@ jobs:
               closed issues to avoid duplicates. Classify each issue as trivial or \
               non-trivial using the criteria in the agent file. Group or split tasks using \
               judgment to keep each issue independently reviewable and within 400 LOC. \
-              Present draft issues to the human for approval, then create them and commit \
+              Create them directly (the PR open is the human's implicit approval) and commit \
               inline <!-- #N --> annotations back to the relevant phase file(s) under \
               docs/plans/ on this PR branch." \
             --no-ask-user \

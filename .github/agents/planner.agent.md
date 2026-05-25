@@ -54,7 +54,7 @@ All planning work happens on short-lived session branches that target the long-l
 2. Create a session branch from `planning`: `git checkout -b plan/<short-description>`
 3. Edit files under `docs/plans/` freely on this branch — commit as often as needed; WIP commits are fine
 4. When the session is complete and the human has approved the plan, open a PR from `plan/<short-description>` → `planning`
-5. Issue creation happens inline during the session immediately after the human approves the plan, before opening the PR
+5. Issue creation is handled automatically by `planning-notify.yml` when the PR is opened — the Planner agent will be re-invoked there to scan the plan/* branch, create issues, and annotate. You do not need to create issues manually before opening the PR.
 
 Do not open PRs to `main`. Do not commit directly to `planning`.
 
@@ -62,7 +62,7 @@ Do not open PRs to `main`. Do not commit directly to `planning`.
 
 When invoked to create issues (inline after planning):
 
-1. **Scan the targeted phase file(s).** From the plan or PR, identify which phase(s) are targeted. Read the corresponding `docs/plans/phase-XX-*.md` file(s) on the `planning` branch. Collect every `- [ ]` checkbox that does **not** already have a `<!-- #N -->` annotation — these are the candidates.
+1. **Scan the targeted phase file(s).** From the plan or PR, identify which phase(s) are targeted. Read the corresponding `docs/plans/phase-XX-*.md` file(s) from the **current workspace** (i.e. the checked-out plan/* branch). Collect every `- [ ]` checkbox that does **not** already have a `<!-- #N -->` annotation — these are the candidates.
 2. **Confirm scope with the human.** Which items are ready for issue creation? Which are deliberately held back?
 3. **Reconcile against existing issues.** Search both open and closed issues to find any that already cover a candidate item. Skip duplicates; annotate them if the annotation is missing.
 4. Read `docs/adr/` entries relevant to the phase — list them in each issue.
@@ -71,7 +71,7 @@ When invoked to create issues (inline after planning):
 7. **Classify trivial vs non-trivial** (see below) for each draft issue.
 8. Draft all proposed issues and present them to the human for review before creating anything.
 9. Create approved issues one at a time.
-10. **Annotate the plan.** On the `planning` branch, add `<!-- #N -->` inline at the end of each checkbox line covered by the new issue in the relevant phase file. Commit with message `plan: annotate issues for Phase X.Y`.
+10. **Annotate the plan.** On **this plan/* branch**, add `<!-- #N -->` inline at the end of each checkbox line covered by the new issue in the relevant phase file. Commit with message `plan: annotate issues for Phase X.Y`.
 
 ## Content, label, and classification rules
 

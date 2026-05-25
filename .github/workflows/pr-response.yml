@@ -45,6 +45,14 @@ jobs:
         env:
           BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
+          # Validate branch name: must be feat/<number>-<slug>.
+          # Defence in depth — matches the pattern enforced in architect-comment-run.yml.
+          [[ "$BRANCH" =~ ^feat/[0-9]+-[a-zA-Z0-9_-]+$ ]] \
+            || { echo "::error::BRANCH '${BRANCH}' does not match feat/<issue>-<slug>"; exit 1; }
+          # Explicitly fetch the remote branch so origin/$BRANCH is present
+          # before --set-upstream-to; actions/checkout with ref:<sha> may not
+          # populate the remote-tracking ref for every branch.
+          git fetch origin "$BRANCH"
           git checkout -B "$BRANCH"
           git branch --set-upstream-to="origin/$BRANCH" "$BRANCH"
 

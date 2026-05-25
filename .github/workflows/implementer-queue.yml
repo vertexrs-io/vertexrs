@@ -17,7 +17,8 @@ jobs:
     if: |
       (github.event_name == 'issues' && github.event.label.name == 'awaiting-agent' &&
        github.event.sender.type == 'User') ||
-      (github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'feat/'))
+      (github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'feat/') &&
+       github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     permissions:
       issues: write

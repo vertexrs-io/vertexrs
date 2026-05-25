@@ -72,6 +72,17 @@ These rules apply to any file under `.github/workflows/`. The Security agent mus
 - The triggering issue's author must be a trusted member before any agent reads its body
 - Any login, branch name, or other string interpolated into a prompt must be regex-validated
 
+### Pre-filtering comments at the workflow level
+
+For agents that need broad comment context (e.g. an initial Architect or Implementer reading prior discussion), the agent prompt's compliance is **not a security boundary** — with `--allow-all-tools` the agent can call `gh` itself. The workflow must materialise the trusted set as a file and instruct the agent to use only that file:
+
+1. Add a step that calls `gh api repos/$REPO/issues/$N/comments --paginate --jq '[.[] | select(.user.type == "Bot" or (.author_association | IN("OWNER","MEMBER","COLLABORATOR")))]'` and writes the output to `./trusted-comments.json`
+2. The agent prompt must (a) point at the file, (b) explicitly forbid `gh api .../comments`, `gh issue view --comments`, or any equivalent direct fetch
+3. The trusted set is: `user.type == "Bot"` OR `author_association ∈ {OWNER, MEMBER, COLLABORATOR}`. `CONTRIBUTOR`, `FIRST_TIME_CONTRIBUTOR`, `FIRST_TIMER`, `MANNEQUIN`, and `NONE` are excluded
+4. Log `kept N of M comments` for auditability
+
+This is defence-in-depth — the agent file rule alone is documentation, not enforcement; the pre-filter file is the actual data the agent sees.
+
 ### Artifact handling (workflow_run pattern)
 
 - Only opaque integer lookup keys (issue/comment/PR IDs) may be persisted to an artifact for a privileged consumer

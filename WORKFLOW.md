@@ -17,7 +17,7 @@ Plan  →  Queue  →  Schedule  →  Design  ⇄  Review  →  Implement  →  
 2. **Queue** — review the issues the Planner created. When you're happy with one, add the `awaiting-agent` label. That's your approval for it to enter the pipeline.
 3. **Schedule** — `implementer-queue.yml` automatically promotes the oldest `awaiting-agent` issue to `ready` when a concurrency slot is free. You don't touch this.
 4. **Design** — `architect.yml` fires on `ready` (non-trivial issues only). The Architect creates a `feat/*` branch, commits design docs to `docs/design/`, and opens a **draft PR** to `main`. It then sets `awaiting-design-approval` on the issue.
-5. **Design review** — read the draft PR and/or the design summary comment on the issue. Leave feedback as a PR review or an issue comment. The Architect (`architect-response.yml`) will revise and re-commit automatically. Repeat until you're satisfied, then set `design-approved` on the issue.
+5. **Design review** — read the draft PR and/or the design summary comment on the issue. Leave feedback as a PR review or an issue comment. The Architect will revise and re-commit automatically (`architect-response.yml` handles PR reviews; `architect-comment-receive.yml` + `architect-comment-run.yml` handle issue comments). Repeat until you're satisfied, then set `design-approved` on the issue.
 6. **Implement** — `implementer.yml` fires on `design-approved` (or on `ready` for trivial issues). The Implementer picks up the `feat/*` branch, writes the code, runs CI, and converts the draft PR to ready for review.
 7. **Code review** — review the PR normally. Request changes if needed; `pr-response.yml` re-invokes the Implementer to address them. Approve and merge when done.
 
