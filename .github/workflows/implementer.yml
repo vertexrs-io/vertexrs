@@ -22,7 +22,7 @@ jobs:
     if: |
       github.event_name == 'workflow_dispatch' ||
       (github.event.label.name == 'design-approved' && github.event.sender.type == 'User') ||
-      (github.event.label.name == 'ready' && github.event.sender.login == 'github-actions[bot]')
+      (github.event.label.name == 'ready' && github.event.sender.login == 'vertexrs-bot-scheduler[bot]')
     runs-on: ubuntu-latest
     permissions:
       contents: write
