@@ -97,10 +97,10 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
-          gh api "repos/$GITHUB_REPOSITORY/issues/${ISSUE_NUMBER}/comments" --paginate \
-            --jq '[.[] | select(.user.type == "Bot" or (.author_association | IN("OWNER","MEMBER","COLLABORATOR"))) | {id, author: .user.login, author_type: .user.type, author_association, created_at, body}]' \
-            > trusted-comments.json
-          TOTAL=$(gh api "repos/$GITHUB_REPOSITORY/issues/${ISSUE_NUMBER}/comments" --paginate --jq 'length')
+          gh api "repos/$GITHUB_REPOSITORY/issues/${ISSUE_NUMBER}/comments" --paginate > all-comments.json
+          TOTAL=$(jq 'length' all-comments.json)
+          jq '[.[] | select(.user.type == "Bot" or (.author_association | IN("OWNER","MEMBER","COLLABORATOR"))) | {id, author: .user.login, author_type: .user.type, author_association, created_at, body}]' \
+            all-comments.json > trusted-comments.json
           KEPT=$(jq 'length' trusted-comments.json)
           echo "Issue #${ISSUE_NUMBER}: kept ${KEPT} of ${TOTAL} comments (rest dropped as untrusted)."
 

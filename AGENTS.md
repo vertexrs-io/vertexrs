@@ -31,7 +31,7 @@ flowchart TD
     READY -->|trivial label present\nimplementer.yml triggers| IMP[Implementer\nCopilot CLI]
     READY -->|no trivial label\narchitect.yml triggers| AR[Architect\nCopilot CLI]
     AR -->|creates feat/* branch\ncommits design docs\nopens draft PR to main\nsets awaiting-design-approval| ADA[awaiting-design-approval]
-    ADA -->|human leaves review/comment\non draft PR or issue| AR_REF[Architect\nrefinement]
+    ADA -->|human leaves PR review / issue comment\n(architect-response.yml / architect-comment-*.yml)| AR_REF[Architect\nrefinement]
     AR_REF -->|updates design docs\ncommits + replies| ADA
     ADA -->|human approves design\nsets design-approved| DA[design-approved]
     DA -->|implementer.yml triggers| IMP

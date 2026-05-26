@@ -42,12 +42,16 @@ jobs:
       - name: Set branch tracking
         env:
           BRANCH: ${{ github.event.pull_request.head.ref }}
+          SHA: ${{ github.event.pull_request.head.sha }}
         run: |
+          # Validate branch name: must be plan/<description>.
+          [[ "$BRANCH" =~ ^plan/[a-zA-Z0-9._-]+$ ]] \
+            || { echo "::error::BRANCH '${BRANCH}' does not match plan/<description>"; exit 1; }
           # Explicitly fetch the remote branch so origin/$BRANCH is present
           # before --set-upstream-to; actions/checkout with ref:<sha> may not
           # populate the remote-tracking ref for every branch.
-          git fetch origin "$BRANCH"
-          git checkout -B "$BRANCH"
+          git fetch origin -- "$BRANCH"
+          git checkout -B "$BRANCH" "$SHA"
           git branch --set-upstream-to="origin/$BRANCH" "$BRANCH"
 
       - name: Install Copilot CLI
