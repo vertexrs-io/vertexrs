@@ -13,7 +13,7 @@ jobs:
     # Guard: 'ready' must be set by the scheduler bot, never by an agent or human.
     if: |
       github.event.label.name == 'ready' &&
-      github.event.sender.login == 'github-actions[bot]'
+      github.event.sender.login == 'vertexrs-bot-scheduler[bot]'
     runs-on: ubuntu-latest
     # Prevent two Architect runs racing on the same issue (e.g. rapid
     # re-labelling or a queue-bot retry). cancel-in-progress: false so a
