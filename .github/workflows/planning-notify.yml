@@ -11,10 +11,14 @@ env:
 
 jobs:
   planner-issues:
-    # Only fires for plan/* → planning PRs from this repo
+    # Only fires for plan/* → planning PRs from this repo, opened by a trusted author.
+    # The same-repo filter alone is not sufficient: a CONTRIBUTOR or FIRST_TIME_CONTRIBUTOR
+    # could push a crafted plan/* branch with a malicious PR body that the Planner agent
+    # would ingest under --allow-all-tools + secrets.COPILOT_PAT.
     if: |
       startsWith(github.head_ref, 'plan/') &&
-      github.event.pull_request.head.repo.full_name == github.repository
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
     runs-on: ubuntu-latest
     permissions:
       contents: write
