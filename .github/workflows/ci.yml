@@ -12,6 +12,12 @@ on:
 permissions:
   contents: read
 
+# Cancel superseded runs on the same PR / branch — a force-push or rapid
+# follow-up commit shouldn't keep stale runs burning CI minutes.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1

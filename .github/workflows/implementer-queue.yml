@@ -12,23 +12,33 @@ on:
 
 jobs:
   promote:
-    # Fire when: awaiting-agent label applied, OR a feat/* PR targeting main is closed
+    # Fire when: awaiting-agent label applied by a human, OR a feat/* PR targeting main is closed.
+    # Guard: 'awaiting-agent' must be set by a human — prevents agents from self-queuing.
     if: |
-      (github.event_name == 'issues' && github.event.label.name == 'awaiting-agent') ||
-      (github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'feat/'))
+      (github.event_name == 'issues' && github.event.label.name == 'awaiting-agent' &&
+       github.event.sender.type == 'User') ||
+      (github.event_name == 'pull_request' && startsWith(github.event.pull_request.head.ref, 'feat/') &&
+       github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     permissions:
       issues: write
+    # Serialize all promotions: two concurrent triggers must not both
+    # observe the same free slot and double-promote past the configured
+    # concurrency limit.
+    concurrency:
+      group: implementer-queue
+      cancel-in-progress: false
 
     steps:
       - name: Count in-flight slots
         id: slots
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Pass through env to avoid inline expression injection in the run script.
+          CONCURRENCY_LIMIT: ${{ vars.IMPLEMENTER_CONCURRENCY_LIMIT }}
         run: |
           # Default limit to 1 if the repo variable is not set
-          RAW_LIMIT="${{ vars.IMPLEMENTER_CONCURRENCY_LIMIT }}"
-          LIMIT="${RAW_LIMIT:-1}"
+          LIMIT="${CONCURRENCY_LIMIT:-1}"
 
           # A slot is in use whenever an open issue holds any in-flight label.
           # Labels are mutually exclusive: agents remove the old label before adding the next.

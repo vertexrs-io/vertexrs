@@ -1,4 +1,4 @@
-name: Notify ScrumMaster on planning PR
+name: Notify Planner on planning PR
 
 on:
   pull_request:
@@ -10,25 +10,58 @@ env:
   COPILOT_MODEL: claude-sonnet-4.6
 
 jobs:
-  scrum-master:
-    # Only fires for plan/* → planning PRs
-    if: startsWith(github.head_ref, 'plan/')
+  planner-issues:
+    # Only fires for plan/* → planning PRs from this repo, opened by a trusted author.
+    # The same-repo filter alone is not sufficient: a CONTRIBUTOR or FIRST_TIME_CONTRIBUTOR
+    # could push a crafted plan/* branch with a malicious PR body that the Planner agent
+    # would ingest under --allow-all-tools + secrets.COPILOT_PAT.
+    if: |
+      startsWith(github.head_ref, 'plan/') &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
       issues: write
+    # Serialize per PR: opened+reopened back-to-back must not both run the
+    # planner agent and race on git push to the same plan/* branch.
+    concurrency:
+      group: planning-notify-pr-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
 
     steps:
+      # Pin to immutable SHA — mutable branch ref is a TOCTOU vector.
+      # Branch tracking is restored afterwards so the agent can push annotations.
       - uses: actions/checkout@v4
         with:
-          ref: planning
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Set branch tracking
+        env:
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # Validate branch name: must be plan/<description>.
+          [[ "$BRANCH" =~ ^plan/[a-zA-Z0-9._-]+$ ]] \
+            || { echo "::error::BRANCH '${BRANCH}' does not match plan/<description>"; exit 1; }
+          # Explicitly fetch the remote branch so origin/$BRANCH is present
+          # before --set-upstream-to; actions/checkout with ref:<sha> may not
+          # populate the remote-tracking ref for every branch.
+          git fetch origin -- "$BRANCH"
+          git checkout -B "$BRANCH" "$SHA"
+          git branch --set-upstream-to="origin/$BRANCH" "$BRANCH"
 
       - name: Install Copilot CLI
         run: npm install -g @github/copilot
 
-      - name: Run ScrumMaster agent
+      - name: Run Planner agent (issue creation)
         env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -36,18 +69,19 @@ jobs:
           PR_URL: ${{ github.event.pull_request.html_url }}
         run: |
           copilot \
-            --agent scrum-master \
+            --agent planner \
             --model $COPILOT_MODEL \
-            --prompt "Process PR #${PR_NUMBER} (${PR_URL}). \
-              Follow the full ScrumMaster workflow from .github/agents/scrum-master.agent.md. \
+            --prompt "Process PR #${PR_NUMBER} (${PR_URL}) using the Issue creation workflow \
+              from .github/agents/planner.agent.md. \
               Read the PR description to identify which phases or sections are targeted, \
-              then read the relevant phase file(s) under docs/plans/ on the planning \
-              branch and collect all unannotated checkboxes (those without a <!-- #N --> \
+              then read the relevant phase file(s) under docs/plans/ in the current \
+              workspace and collect all unannotated checkboxes (those without a <!-- #N --> \
               annotation) in the targeted phases. Reconcile against existing open and \
-              closed issues to avoid duplicates. Group or split tasks using judgment to \
-              keep each issue independently reviewable and within 400 LOC. Present draft \
-              issues to the human for approval, then create them and commit inline <!-- #N --> \
-              annotations back to the relevant phase file(s) under docs/plans/ on the \
-              planning branch." \
+              closed issues to avoid duplicates. Classify each issue as trivial or \
+              non-trivial using the criteria in the agent file. Group or split tasks using \
+              judgment to keep each issue independently reviewable and within 400 LOC. \
+              Create them directly (the PR open is the human's implicit approval) and commit \
+              inline <!-- #N --> annotations back to the relevant phase file(s) under \
+              docs/plans/ on this PR branch." \
             --no-ask-user \
             --allow-all-tools

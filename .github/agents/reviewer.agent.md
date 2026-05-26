@@ -16,6 +16,7 @@ Before reading the diff, collect:
 2. The full issue body — confirm what the acceptance criteria are
 3. CI status — if CI is failing, the review decision is automatically "request changes"; note the failures and stop there
 4. The relevant ADRs for this phase
+5. The Security agent's report — download the `security-report` artifact (or read the bot's PR comment); confirm `SECURITY_SCAN_STATUS: PASS`. If `FAIL`, escalate each blocking finding in your review comments and request changes
 
 Ask the user if any of the above is unclear.
 
@@ -30,8 +31,10 @@ Work through the checklist in `.github/instructions/process/pr-review.instructio
 
 **Request changes** if any of the following are true:
 - A CI step is failing
+- The Security agent reported `SECURITY_SCAN_STATUS: FAIL`
 - Coverage has dropped below 90%
 - One or more acceptance criteria from the issue are unmet
+- One or more acceptance criteria have no corresponding test — every AC must be verifiable by at least one named test
 - An ADR constraint is violated
 - `unsafe` code lacks a `// SAFETY:` comment
 - `unwrap()` appears in library code (outside tests/examples)

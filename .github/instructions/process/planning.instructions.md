@@ -29,28 +29,63 @@ Every issue must include these sections (use the feature issue template):
 
 1. **Phase reference** — link to the relevant checkbox in the appropriate `docs/plans/phase-XX-*.md` file
 2. **Summary** — one paragraph; what this implements and why it matters
-3. **Acceptance criteria** — testable bullet points checkable by CI or code review; minimum three criteria
+3. **Acceptance criteria** — behavioral specifications that the Implementer translates directly into tests. The Implementer writes a failing test for each AC *before* writing any implementation. Each criterion must:
+   - Describe an observable outcome (return value, state change, error raised, property preserved) — not an implementation detail
+   - Be specific enough that a test name and a single assertion can be written from it alone
+   - Be verifiable by CI, a test assertion, or unambiguous code review — not by subjective judgment
+   - Be relevant to the feature — not generic boilerplate like "the code should compile" or "coverage should be maintained"
+
+   Minimum three criteria. A strong AC drives a test; a weak AC drives nothing. If you cannot write a test assertion from an AC, rewrite it.
+
+   **Good AC:** `Given a ChunkedColumn with dirty chunks at [0, 2], when recompute() is called, only chunks 0 and 2 are passed to the kernel; chunk 1 is not recomputed.`
+   **Bad AC:** `The dirty-chunk tracking logic should be correct.`
+
+   A good issue with three strong ACs is better than one with ten vague ones.
 4. **Affected crates** — `vertexrs`, `vertexrs-macro`, or both
 5. **Relevant ADRs** — list any `docs/adr/` records that constrain the design
 6. **Out of scope** — what this issue deliberately does not do
 
 ## Labels
 
-Apply exactly one primary label: `enhancement`, `bug`, `refactor`, `docs`, `perf`.
-Apply one phase label: `phase-1` through `phase-9` (public) or `phase-10`/`phase-11` (internal).
+Every issue created by the Planner must carry **all three** of:
 
-## Design step trigger
+- One primary label: `enhancement`, `bug`, `refactor`, `docs`, `perf`
+- One phase label: `phase-1` through `phase-9` (public) or `phase-10`/`phase-11` (internal)
+- The lifecycle entry label: `queued`
 
-After an issue is created, decide whether it needs a design pass before implementation. The Architect agent is required when **any** of the following apply:
+Apply `trivial` additionally when the trivial criteria below are met.
 
-- The issue would require a new ADR (a non-obvious technical decision that constrains future work)
-- Changes touch more than one crate's public API
-- The implementation approach is not obvious from the acceptance criteria alone
+## Label lifecycle
 
-Mark issues that require design with the label `needs-design`. The Implementer must not start until the Architect has posted a design and the human has approved it.
+Every issue moves through this sequence; each transition is gated:
 
-Simple, self-contained issues skip the design step and go directly to the Implementer.
+| State | Set by | Means |
+|---|---|---|
+| `queued` | Planner (at creation) | Issue exists but no agent should act yet |
+| `awaiting-agent` | **Human** (manual) | Human has approved the issue for agent execution |
+| `ready` | Queue bot (`implementer-queue.yml`) | A slot is free; the Architect (non-trivial) or Implementer (trivial) should pick it up |
+| `awaiting-design-approval` | Architect (after posting design) | Draft PR is open; awaiting human design sign-off |
+| `design-approved` | **Human** (manual) | Implementer may now build the design |
+
+Notes:
+- `awaiting-agent` and `design-approved` are the only transitions that require a human; agents must never apply these
+- `ready` is bot-applied so the Architect/Implementer workflows can distinguish bot-driven promotion from manual labelling
+- The label sequence is the source of truth for which agent runs next — workflows gate on both the label and the `sender.type` / `sender.login` of the change
+
+## Trivial vs non-trivial classification
+
+The Planner classifies issues at creation time. Apply the `trivial` label (alongside `queued`) when **all** of the following are true:
+
+- The change is contained within a single crate and a single module
+- No new public API, trait, or type is introduced
+- No ADR is needed
+- The implementation approach is unambiguous from the acceptance criteria alone
+- Estimated change is ≤ 50 LOC
+
+If any criterion is not met, do not apply `trivial`. Non-trivial issues automatically trigger the Architect agent (via the `ready` label); the Implementer must not start until the Architect has posted a design and the human has set `design-approved` on the issue.
+
+When in doubt, omit `trivial` — the Architect stage has low cost and high value.
 
 ## Plan maintenance
 
-After creating issues, update the plan: add an issue reference next to each corresponding checkbox in `main.md`.
+After creating issues, update the plan: add an inline `<!-- #N -->` annotation at the end of each corresponding checkbox in the relevant `docs/plans/phase-XX-*.md` file. Commit with message `plan: annotate issues for Phase X.Y`.

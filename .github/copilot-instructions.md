@@ -201,10 +201,10 @@ bench    → cargo bench (main merges only: compare new vs previous main baselin
 | `.github/instructions/process/security.instructions.md` | Security-sensitive code |
 | `.github/instructions/process/pr-review.instructions.md` | Reviewing PRs |
 | `.github/agents/planner.agent.md` | Planner agent mode |
-| `.github/agents/scrum-master.agent.md` | ScrumMaster agent mode |
 | `.github/agents/architect.agent.md` | Architect agent mode |
 | `.github/agents/implementer.agent.md` | Implementer agent mode |
 | `.github/agents/reviewer.agent.md` | Reviewer agent mode |
+| `.github/agents/security.agent.md` | Security agent mode (PR security review) |
 
 ## Architectural Decision Records
 
@@ -230,7 +230,7 @@ All project content (documentation, plans, design artefacts) lives in `docs/`. `
 |---|---|
 | `docs/plans/main.md` | Phase index — phase list, status, and links to phase files. Owned by the Planner agent. |
 | `docs/plans/phase-XX-*.md` | Per-phase detail files — checkboxes, tasks, issue annotations. Owned by the Planner agent. |
-| `docs/adr/` | Permanent architectural decision records. Read before implementing anything non-trivial. |
-| `docs/design/` | Issue-scoped design documents produced by the Architect agent. Obsolete once the issue is implemented, kept for traceability. |
+| `docs/adr/` | Permanent architectural decision records. Committed on `feat/*` branches and shipped to `main` with the feature. Read before implementing anything non-trivial. |
+| `docs/design/` | Issue-scoped design documents produced by the Architect agent. Committed on `feat/*` branches and shipped to `main` with the feature. Obsolete once the issue is implemented, kept for traceability. |
 
 

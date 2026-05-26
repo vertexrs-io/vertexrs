@@ -12,10 +12,21 @@ env:
 
 jobs:
   sync:
+    # For pull_request events, only run for PRs from this repo (not forks).
+    # workflow_dispatch is unrestricted — GitHub already limits it to collaborators.
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
+    # Serialize: concurrent runs both try to merge main → planning and push,
+    # producing non-fast-forward errors and potentially losing the AI-resolved
+    # conflict commit. One at a time.
+    concurrency:
+      group: planning-sync
+      cancel-in-progress: false
 
     steps:
       - name: Checkout planning branch
