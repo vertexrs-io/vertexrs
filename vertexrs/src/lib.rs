@@ -27,7 +27,7 @@ use arrow_array::{
         UInt8Type, UInt16Type, UInt32Type, UInt64Type,
     },
 };
-use arrow_buffer::{ArrowNativeType, ScalarBuffer};
+use arrow_buffer::{ArrowNativeType, BooleanBuffer, NullBuffer, ScalarBuffer};
 use half::f16;
 
 pub use vertexrs_macro::{node, pipeline};
@@ -51,6 +51,9 @@ pub struct BoolNode {
     pub deps: &'static [&'static str],
     /// Bit-packed Arrow boolean array.
     pub data: BooleanArray,
+    /// `false` → always-dirty; the incremental executor must recompute this
+    /// node even when all upstream inputs are unchanged.
+    pub pure: bool,
 }
 
 impl BoolNode {
@@ -60,6 +63,7 @@ impl BoolNode {
             name,
             deps: &[],
             data: BooleanArray::from(data),
+            pure: true,
         }
     }
 
@@ -75,7 +79,17 @@ impl BoolNode {
             name,
             deps,
             data: BooleanArray::from(data),
+            pure: true,
         }
+    }
+
+    /// Returns `self` with the `pure` flag overridden.
+    ///
+    /// Used by the `pipeline!` macro to apply `pure = false` annotations
+    /// without needing to know the concrete node type at code-generation time.
+    pub fn with_pure(mut self, pure: bool) -> Self {
+        self.pure = pure;
+        self
     }
 
     /// Returns the boolean value at the given row index.
@@ -213,6 +227,12 @@ pub struct Node<T: ArrowNativeType> {
     pub deps: &'static [&'static str],
     /// Arrow-backed column of computed values.
     pub data: ScalarBuffer<T>,
+    /// Arrow validity bitmap.  `None` means all values are valid (no NA).
+    /// `Some(b)` where `b.null_count() == len` means all values are NA.
+    pub validity: Option<NullBuffer>,
+    /// `false` → always-dirty; the incremental executor must recompute this
+    /// node even when all upstream inputs are unchanged.
+    pub pure: bool,
 }
 
 impl<T: ArrowNativeType> Node<T> {
@@ -224,6 +244,8 @@ impl<T: ArrowNativeType> Node<T> {
             name,
             deps,
             data: ScalarBuffer::from(data),
+            validity: None,
+            pure: true,
         }
     }
 
@@ -233,7 +255,60 @@ impl<T: ArrowNativeType> Node<T> {
             name,
             deps: &[],
             data: ScalarBuffer::from(data),
+            validity: None,
+            pure: true,
         }
+    }
+
+    /// Creates an all-NA node: data is zeroed, every element is marked null.
+    ///
+    /// Used by the `pipeline!` macro as the soft-failure fallback value.
+    ///
+    /// # Example
+    /// ```
+    /// use vertexrs::Node;
+    /// let na = Node::<f64>::all_na("tax", &[], 3);
+    /// assert_eq!(na.null_count(), 3);
+    /// ```
+    pub fn all_na(name: &'static str, deps: &'static [&'static str], len: usize) -> Self {
+        Self {
+            name,
+            deps,
+            data: ScalarBuffer::from(vec![T::default(); len]),
+            validity: Some(NullBuffer::new(BooleanBuffer::from(vec![false; len]))),
+            pure: true,
+        }
+    }
+
+    /// Number of null elements in this column.
+    /// Returns `0` when `validity` is `None` (all values valid).
+    ///
+    /// # Example
+    /// ```
+    /// use vertexrs::Node;
+    /// let valid = Node::from_data("x", vec![1.0_f64, 2.0]);
+    /// assert_eq!(valid.null_count(), 0);
+    /// let na = Node::<f64>::all_na("x", &[], 2);
+    /// assert_eq!(na.null_count(), 2);
+    /// ```
+    pub fn null_count(&self) -> usize {
+        self.validity.as_ref().map(|v| v.null_count()).unwrap_or(0)
+    }
+
+    /// Returns `self` with the `pure` flag overridden.
+    ///
+    /// Used by the `pipeline!` macro to apply `pure = false` annotations
+    /// without needing to know the concrete node type at code-generation time.
+    ///
+    /// # Example
+    /// ```
+    /// use vertexrs::Node;
+    /// let n = Node::from_data("x", vec![1.0_f64]).with_pure(false);
+    /// assert!(!n.pure);
+    /// ```
+    pub fn with_pure(mut self, pure: bool) -> Self {
+        self.pure = pure;
+        self
     }
 
     /// Returns a slice over this column's values.
@@ -285,7 +360,7 @@ impl<T: ArrowBacked> Node<T> {
     /// The conversion is zero-copy: the underlying [`ScalarBuffer`] is shared
     /// via `Arc`, so this is `O(1)`.
     pub fn to_arrow_array(&self) -> PrimitiveArray<T::ArrowType> {
-        PrimitiveArray::new(self.data.clone(), None)
+        PrimitiveArray::new(self.data.clone(), self.validity.clone())
     }
 
     /// Creates a source node from an Arrow [`PrimitiveArray`].
@@ -297,6 +372,8 @@ impl<T: ArrowBacked> Node<T> {
             name,
             deps: &[],
             data: array.values().clone(),
+            validity: None,
+            pure: true,
         }
     }
 }
@@ -465,6 +542,29 @@ impl AnyNode {
     /// Returns `true` if the column has no rows.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    /// Number of null elements in this column.
+    ///
+    /// Returns `0` for [`BoolNode`] and [`StringNode`] as they do not yet carry
+    /// a validity bitmap.
+    pub fn null_count(&self) -> usize {
+        match self {
+            AnyNode::F16(n) => n.null_count(),
+            AnyNode::F32(n) => n.null_count(),
+            AnyNode::F64(n) => n.null_count(),
+            AnyNode::I8(n) => n.null_count(),
+            AnyNode::I16(n) => n.null_count(),
+            AnyNode::I32(n) => n.null_count(),
+            AnyNode::I64(n) => n.null_count(),
+            AnyNode::U8(n) => n.null_count(),
+            AnyNode::U16(n) => n.null_count(),
+            AnyNode::U32(n) => n.null_count(),
+            AnyNode::U64(n) => n.null_count(),
+            // BoolNode and StringNode validity deferred
+            AnyNode::Bool(_) => 0,
+            AnyNode::Str(_) => 0,
+        }
     }
 
     /// The name of the native type stored in this column (e.g. `"f64"`, `"bool"`, `"str"`).
@@ -669,6 +769,23 @@ impl Frame {
     /// Number of columns in the frame.
     pub fn column_count(&self) -> usize {
         self.columns.len()
+    }
+
+    /// Returns the number of null elements in column `name`, or `None` if the
+    /// column does not exist.
+    ///
+    /// # Example
+    /// ```
+    /// use vertexrs::{Frame, Node};
+    /// let frame = Frame::new().append(Node::from_data("x", vec![1.0_f64, 2.0]));
+    /// assert_eq!(frame.null_count("x"), Some(0));
+    /// assert_eq!(frame.null_count("missing"), None);
+    /// ```
+    pub fn null_count(&self, name: &str) -> Option<usize> {
+        self.columns
+            .iter()
+            .find(|(n, _)| n == name)
+            .map(|(_, any)| any.null_count())
     }
 
     /// Appends an [`AnyNode`] to the frame in-place.
@@ -1408,5 +1525,204 @@ mod tests {
         let vals = Node::from_data("v", vec![0_i32, 1, 2, 3]);
         node!(nonzero = vals.row(|x| -> bool { x != 0 }));
         assert_eq!(nonzero.to_vec(), vec![false, true, true, true]);
+    }
+
+    // ── Phase 2.6: per-node failure mode syntax ───────────────────────────────
+
+    // AC1 — `?` soft failure: panicking kernel produces Ok(()), all-NA output, warning.
+    #[test]
+    fn pipeline_soft_failure_sigil_produces_ok_and_na_column() {
+        let frame = Frame::new().append(Node::from_data("price", vec![1.0_f64, 2.0, 3.0]));
+
+        let mut p = pipeline! {
+            source!(price: f64);
+            node!(tax = price.row(|_x| -> f64 { panic!("oops") })?);
+            output!(tax)
+        };
+
+        p.push(&frame);
+        let result = p.compute();
+        assert!(result.is_ok(), "soft failure should return Ok(())");
+
+        let out = p.output();
+        assert_eq!(
+            out.null_count("tax"),
+            Some(3),
+            "all elements of tax should be NA"
+        );
+
+        let warnings = p.drain_warnings();
+        assert!(
+            warnings.iter().any(|w| w.contains("tax")),
+            "warnings should contain the node name 'tax'; got: {warnings:?}"
+        );
+    }
+
+    // AC2 — `!` hard failure: panicking kernel halts pipeline, returns Err, downstream skipped.
+    #[test]
+    fn pipeline_hard_failure_sigil_returns_err_and_halts() {
+        let frame = Frame::new().append(Node::from_data("price", vec![1.0_f64, 2.0, 3.0]));
+
+        let mut p = pipeline! {
+            source!(price: f64);
+            node!(tax   = price.row(|_x| -> f64 { panic!("hard fail") })!);
+            node!(total = tax.row(|x| x + 1.0));
+            output!(total)
+        };
+
+        p.push(&frame);
+        let result = p.compute();
+        assert!(
+            matches!(result, Err(PipelineError::KernelPanic(_))),
+            "hard failure should return Err(KernelPanic), got: {result:?}"
+        );
+        // Output frame retains its pre-call (empty) value — no total column.
+        assert!(
+            p.output().get::<f64>("total").is_none(),
+            "total should not have been computed"
+        );
+    }
+
+    // AC3 — node-level sigil overrides pipeline-level setting.
+    #[test]
+    fn pipeline_soft_sigil_overrides_hard_pipeline_setting() {
+        let frame = Frame::new().append(Node::from_data("price", vec![1.0_f64, 2.0]));
+
+        // Pipeline default is Hard, but the node uses `?` → should be Soft.
+        let mut p = pipeline! {
+            source!(price: f64);
+            pipeline!(inner {
+                settings { failure: Hard }
+                source!(price: f64);
+                node!(tax = price.row(|_x| -> f64 { panic!("override") })?);
+                output!(tax)
+            });
+            node!(result = inner.row(|tax: f64| tax + 0.0));
+            output!(result)
+        };
+
+        p.push(&frame);
+        let result = p.compute();
+        // The nested pipeline itself returns Ok because `?` → soft.
+        assert!(
+            result.is_ok(),
+            "soft sigil should override hard pipeline setting"
+        );
+    }
+
+    #[test]
+    fn pipeline_hard_sigil_overrides_soft_pipeline_setting() {
+        let frame = Frame::new().append(Node::from_data("price", vec![1.0_f64, 2.0]));
+
+        // Pipeline default is Soft, but the node uses `!` → should be Hard.
+        let mut p = pipeline! {
+            source!(price: f64);
+            node!(tax = price.row(|_x| -> f64 { panic!("hard override") })!);
+            output!(tax)
+        };
+
+        p.push(&frame);
+        let result = p.compute();
+        assert!(
+            matches!(result, Err(PipelineError::KernelPanic(_))),
+            "hard sigil should produce Err(KernelPanic)"
+        );
+    }
+
+    // AC4 — `pure = false` compiles and stores flag correctly.
+    #[test]
+    fn pipeline_pure_false_annotation_compiles_and_stores_flag() {
+        let frame = Frame::new().append(Node::from_data("src", vec![1.0_f64, 2.0, 3.0]));
+
+        let mut p = pipeline! {
+            source!(src: f64);
+            node!(counter = src.row(|x| x + 1.0), pure = false);
+            output!(counter)
+        };
+
+        p.push(&frame);
+        p.compute().unwrap();
+        let out = p.output();
+        assert_eq!(
+            out.get::<f64>("counter").unwrap(),
+            &[2.0, 3.0, 4.0],
+            "pure = false node should compute correct values"
+        );
+    }
+
+    // AC4 — `pure = false` flag is accessible on the node.
+    #[test]
+    fn node_pure_false_flag_is_stored() {
+        let src = Node::from_data("src", vec![1.0_f64, 2.0]);
+        node!(counter = src.row(|x| x + 1.0));
+        let counter = counter.with_pure(false);
+        assert!(
+            !counter.pure,
+            "pure flag should be false after with_pure(false)"
+        );
+    }
+
+    // AC5 — Default behaviour unchanged: no sigil, no `settings {}` → soft + pure=true.
+    #[test]
+    fn pipeline_default_behaviour_unchanged_no_sigil() {
+        let frame = Frame::new().append(Node::from_data("price", vec![10.0_f64, 20.0, 30.0]));
+
+        let mut p = pipeline! {
+            source!(price: f64);
+            node!(tax = price.row(|x| x * 0.1));
+            output!(tax)
+        };
+
+        p.push(&frame);
+        p.compute().unwrap();
+        assert_eq!(p.output().get::<f64>("tax").unwrap(), &[1.0, 2.0, 3.0]);
+    }
+
+    // AC5 — Default node has pure = true.
+    #[test]
+    fn node_default_pure_is_true() {
+        let src = Node::from_data("src", vec![1.0_f64]);
+        node!(out = src.row(|x| x));
+        assert!(out.pure, "default node should have pure = true");
+    }
+
+    // AC1 extension — null_count helper on Node.
+    #[test]
+    fn node_all_na_null_count() {
+        let na = Node::<f64>::all_na("x", &[], 5);
+        assert_eq!(na.null_count(), 5);
+        assert_eq!(na.len(), 5);
+    }
+
+    // AC1 extension — Frame::null_count helper.
+    #[test]
+    fn frame_null_count_returns_zero_for_valid_column() {
+        let frame = Frame::new().append(Node::from_data("x", vec![1.0_f64, 2.0]));
+        assert_eq!(frame.null_count("x"), Some(0));
+        assert_eq!(frame.null_count("missing"), None);
+    }
+
+    // Soft failure: warnings contain node name.
+    #[test]
+    fn pipeline_soft_failure_warning_contains_node_name() {
+        let frame = Frame::new().append(Node::from_data("price", vec![1.0_f64]));
+
+        let mut p = pipeline! {
+            source!(price: f64);
+            node!(tax = price.row(|_x| -> f64 { panic!("oops") })?);
+            output!(tax)
+        };
+
+        p.push(&frame);
+        p.compute().unwrap();
+        let warnings = p.drain_warnings();
+        assert!(
+            !warnings.is_empty(),
+            "should have at least one warning after soft failure"
+        );
+        assert!(
+            warnings[0].contains("tax"),
+            "warning should mention node name 'tax'"
+        );
     }
 }
