@@ -176,10 +176,24 @@ jobs:
       # default branch — trusted code the CodeQL rule does not flag.
       # We then switch to the feature branch via plain git commands; those are
       # outside the scope of the CodeQL Actions taint-tracking query.
+      # Mint a short-lived installation token for the vertexrs-bot-scheduler
+      # GitHub App. The agent pushes refined design commits to the draft PR
+      # branch with this token; a push authored by GITHUB_TOKEN would not
+      # re-trigger CI (GitHub blocks chain-triggers from GITHUB_TOKEN).
+      - uses: actions/create-github-app-token@v1
+        id: app-token
+        if: steps.pr_data.outputs.skip != 'true'
+        with:
+          app-id: ${{ secrets.SCHEDULER_APP_ID }}
+          private-key: ${{ secrets.SCHEDULER_APP_PRIVATE_KEY }}
+
       - uses: actions/checkout@v4
         if: steps.pr_data.outputs.skip != 'true'
         with:
           fetch-depth: 0
+          # Persist the App token (not GITHUB_TOKEN) so the agent's `git push`
+          # to the design branch fires the `pull_request` synchronize event and CI re-runs.
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Configure git
         if: steps.pr_data.outputs.skip != 'true'
@@ -221,7 +235,9 @@ jobs:
         if: steps.pr_data.outputs.skip != 'true'
         env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # App token so the agent's `gh` calls act as the app and keep CI
+          # chain-triggers working on the design-branch push.
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           ISSUE_NUMBER: ${{ steps.artifact.outputs.issue_number }}
           COMMENT_ID: ${{ steps.artifact.outputs.comment_id }}
           COMMENTER: ${{ steps.pr_data.outputs.commenter }}

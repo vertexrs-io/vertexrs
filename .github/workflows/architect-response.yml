@@ -32,6 +32,16 @@ jobs:
       cancel-in-progress: false
 
     steps:
+      # Mint a short-lived installation token for the vertexrs-bot-scheduler
+      # GitHub App. The agent pushes refined design commits to the PR branch
+      # with this token; a push authored by GITHUB_TOKEN would not re-trigger
+      # CI (GitHub blocks chain-triggers from GITHUB_TOKEN).
+      - uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ secrets.SCHEDULER_APP_ID }}
+          private-key: ${{ secrets.SCHEDULER_APP_PRIVATE_KEY }}
+
       # Pin to the immutable commit SHA, not the mutable branch name, to satisfy
       # CodeQL CWE-829 TOCTOU: the branch could be force-pushed between trigger and
       # checkout. We restore the branch tracking afterwards so the agent can push.
@@ -39,6 +49,9 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
+          # Persist the App token (not GITHUB_TOKEN) so the agent's `git push`
+          # to the PR branch fires the `pull_request` synchronize event and CI re-runs.
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Configure git
         run: |
@@ -75,7 +88,9 @@ jobs:
       - name: Run Architect refinement
         env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # App token so the agent's `gh` calls act as the app and keep CI
+          # chain-triggers working on the PR-branch push.
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REVIEWER: ${{ github.event.review.user.login }}
           REVIEW_ID: ${{ github.event.review.id }}
