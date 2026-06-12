@@ -315,13 +315,21 @@ pub fn node(input: TokenStream) -> TokenStream {
                     quote! { let #d = #d.data[__vtx_i]; }
                 });
 
+                // Propagate the explicit return type annotation (if any) to the
+                // generated map closure so that diverging bodies (e.g. `panic!()`)
+                // are typed correctly rather than being inferred as `!`.
+                let map_return_hint = match &closure.output {
+                    ReturnType::Type(arrow, ty) => quote! { #arrow #ty },
+                    ReturnType::Default => quote! {},
+                };
+
                 if is_bool_return(closure) {
                     quote! {
                         let #name = BoolNode::new_with_deps(
                             #name_lit,
                             &[#recv_lit, #(#extra_dep_lits),*],
                             (0..#recv_ident_ts.len())
-                                .map(|__vtx_i| {
+                                .map(|__vtx_i| #map_return_hint {
                                     #arg_bind
                                     #(#dep_binds)*
                                     #body
@@ -336,7 +344,7 @@ pub fn node(input: TokenStream) -> TokenStream {
                             #name_lit,
                             &[#recv_lit, #(#extra_dep_lits),*],
                             (0..#recv_ident_ts.len())
-                                .map(|__vtx_i| {
+                                .map(|__vtx_i| #map_return_hint {
                                     #arg_bind
                                     #(#dep_binds)*
                                     #body
@@ -416,6 +424,87 @@ pub fn node(input: TokenStream) -> TokenStream {
 
 // ── pipeline! ────────────────────────────────────────────────────────────────
 
+/// Per-node failure mode override declared via a trailing sigil on a `node!`
+/// expression inside `pipeline!`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum NodeFailureOverride {
+    /// No sigil — behave as before (panic propagates; existing tests unaffected).
+    None,
+    /// `?` sigil — soft failure: catch panic, write NA, push warning, continue.
+    Soft,
+    /// `!` sigil — hard failure: catch panic, return `PipelineError::KernelPanic`.
+    Hard,
+}
+
+/// Parsed metadata for a `node!(…)` item inside `pipeline!`.
+struct NodeItemMeta {
+    /// Node name (the LHS of `name = expr`).
+    name: Ident,
+    /// Primary receiver identifier, used to compute NA fallback length.
+    /// `None` only if the receiver expression is not a simple ident (compile
+    /// error in `node!` anyway, so the pipeline will fail to compile).
+    receiver_ident: Option<Ident>,
+    /// Core expression: `node!` tokens without the sigil and without the
+    /// `pure` option.  Suitable for passing directly to `vertexrs::node!(…)`.
+    core_expr_tokens: proc_macro2::TokenStream,
+    /// Per-node failure override.
+    failure_override: NodeFailureOverride,
+    /// When `false`, the incremental executor must always recompute this node.
+    pure: bool,
+}
+
+/// Parses `name = expr[?|!][, pure = bool]` from the content of a `node!(…)`
+/// declaration inside `pipeline!`.
+fn parse_node_item_meta(input: ParseStream) -> syn::Result<NodeItemMeta> {
+    let name: Ident = input.parse()?;
+    input.parse::<Token![=]>()?;
+
+    // Parse the expression.  `syn` will consume `?` as `Expr::Try` but will
+    // leave a trailing `!` unconsumed (not a valid postfix operator in Rust).
+    let expr: Expr = input.parse()?;
+
+    // Detect sigil.
+    let (core_expr, failure_override) = if let Expr::Try(try_expr) = expr {
+        (*try_expr.expr, NodeFailureOverride::Soft)
+    } else if input.peek(Token![!]) {
+        input.parse::<Token![!]>()?;
+        (expr, NodeFailureOverride::Hard)
+    } else {
+        (expr, NodeFailureOverride::None)
+    };
+
+    // Detect `, pure = <bool>`.
+    let pure = if input.peek(Token![,]) {
+        input.parse::<Token![,]>()?;
+        let key: Ident = input.parse()?;
+        if key != "pure" {
+            return Err(syn::Error::new(
+                key.span(),
+                "expected `pure` key in node options (e.g. `pure = false`)",
+            ));
+        }
+        input.parse::<Token![=]>()?;
+        let val: syn::LitBool = input.parse()?;
+        val.value
+    } else {
+        true
+    };
+
+    // Extract receiver ident for NA-fallback length.
+    let receiver_ident =
+        extract_node_call(&core_expr).and_then(|nc| receiver_ident(nc.receiver).cloned());
+
+    let core_expr_tokens = quote! { #name = #core_expr };
+
+    Ok(NodeItemMeta {
+        name,
+        receiver_ident,
+        core_expr_tokens,
+        failure_override,
+        pure,
+    })
+}
+
 /// Failure mode specified in a nested `pipeline!(name { settings { failure: Mode } ... })` block.
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum FailureModeKind {
@@ -448,7 +537,7 @@ struct SubItem {
 
 /// An ordered pipeline item (everything except `source!` and `output!`).
 enum OrderedItem {
-    Node(proc_macro2::TokenStream),
+    Node(Box<NodeItemMeta>),
     Nested(Box<NestedPipelineItem>),
     Sub(Box<SubItem>),
 }
@@ -526,8 +615,8 @@ impl Parse for PipelineDef {
                     }
                 }
                 "node" => {
-                    let tokens: proc_macro2::TokenStream = content.parse()?;
-                    items.push(PipelineItem::Ordered(OrderedItem::Node(tokens)));
+                    let meta = content.call(parse_node_item_meta)?;
+                    items.push(PipelineItem::Ordered(OrderedItem::Node(Box::new(meta))));
                 }
                 "output" => {
                     let mut names = Vec::new();
@@ -669,10 +758,81 @@ pub fn pipeline(input: TokenStream) -> TokenStream {
     for item in &ordered {
         match item {
             // ── node! — no field, no push; just a run-time invocation ─────────
-            OrderedItem::Node(ts) => {
+            OrderedItem::Node(meta) => {
                 ord_fields.push(quote! {});
                 ord_push.push(quote! {});
-                ord_run.push(quote! { vertexrs::node!(#ts); });
+                let ts = &meta.core_expr_tokens;
+                let name = &meta.name;
+                let name_str = name.to_string();
+
+                let base_run = match meta.failure_override {
+                    NodeFailureOverride::None => quote! {
+                        vertexrs::node!(#ts);
+                    },
+                    NodeFailureOverride::Soft => {
+                        // Use the receiver ident for the NA fallback length.
+                        // Fall back to 0 if we couldn't extract a simple receiver.
+                        let len_expr = if let Some(recv) = &meta.receiver_ident {
+                            quote! { #recv.len() }
+                        } else {
+                            quote! { 0usize }
+                        };
+                        quote! {
+                            let #name = match ::std::panic::catch_unwind(
+                                ::std::panic::AssertUnwindSafe(|| {
+                                    #[allow(unused_imports)]
+                                    use vertexrs::{Node, BoolNode, ColRef};
+                                    vertexrs::node!(#ts);
+                                    #name
+                                })
+                            ) {
+                                ::core::result::Result::Ok(__n) => __n,
+                                ::core::result::Result::Err(__e) => {
+                                    let __msg = __e.downcast_ref::<&str>()
+                                        .map(|s| s.to_string())
+                                        .or_else(|| __e.downcast_ref::<::std::string::String>().cloned())
+                                        .unwrap_or_else(|| "kernel panicked".to_string());
+                                    self.__warnings.push(::std::format!(
+                                        "node '{}': kernel failed: {}", #name_str, __msg
+                                    ));
+                                    vertexrs::Node::all_na(#name_str, &[], #len_expr)
+                                }
+                            };
+                        }
+                    }
+                    NodeFailureOverride::Hard => {
+                        quote! {
+                            let #name = ::std::panic::catch_unwind(
+                                ::std::panic::AssertUnwindSafe(|| {
+                                    #[allow(unused_imports)]
+                                    use vertexrs::{Node, BoolNode, ColRef};
+                                    vertexrs::node!(#ts);
+                                    #name
+                                })
+                            ).map_err(|__e| {
+                                let __msg = __e.downcast_ref::<&str>()
+                                    .map(|s| s.to_string())
+                                    .or_else(|| __e.downcast_ref::<::std::string::String>().cloned())
+                                    .unwrap_or_else(|| "kernel panicked".to_string());
+                                vertexrs::PipelineError::KernelPanic(
+                                    ::std::format!("node '{}': {}", #name_str, __msg)
+                                )
+                            })?;
+                        }
+                    }
+                };
+
+                // Apply `pure = false` annotation if needed.
+                let run_code = if !meta.pure {
+                    quote! {
+                        #base_run
+                        let #name = #name.with_pure(false);
+                    }
+                } else {
+                    base_run
+                };
+
+                ord_run.push(run_code);
                 ord_init.push(quote! {});
             }
 
