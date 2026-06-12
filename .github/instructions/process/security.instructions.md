@@ -74,7 +74,7 @@ These rules apply to any file under `.github/workflows/`. The Security agent mus
 
 ### Pre-filtering comments at the workflow level
 
-For agents that need broad comment context (e.g. an initial Architect or Implementer reading prior discussion), the agent prompt's compliance is **not a security boundary** — with `--allow-all-tools` the agent can call `gh` itself. The workflow must materialise the trusted set as a file and instruct the agent to use only that file:
+For agents that need broad comment context (e.g. an initial Architect or Implementer reading prior discussion), the agent prompt's compliance is **not a security boundary** — with broad `Bash`/`gh` access the agent can call `gh` itself. The workflow must materialise the trusted set as a file and instruct the agent to use only that file:
 
 1. Add a step that calls `gh api repos/$REPO/issues/$N/comments --paginate --jq '[.[] | select(.user.type == "Bot" or (.author_association | IN("OWNER","MEMBER","COLLABORATOR")))]'` and writes the output to `./trusted-comments.json`
 2. The agent prompt must (a) point at the file, (b) explicitly forbid `gh api .../comments`, `gh issue view --comments`, or any equivalent direct fetch

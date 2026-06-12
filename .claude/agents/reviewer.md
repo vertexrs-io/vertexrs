@@ -1,7 +1,8 @@
 ---
-name: Reviewer
+name: reviewer
 description: "Reviews an open PR against instructions, ADRs, and acceptance criteria. Only posts comments — never modifies code."
-tools: [vscode/askQuestions, read/readFile, search, github/add_comment_to_pending_review, github/add_reply_to_pull_request_comment, github/get_file_contents, github/pull_request_read, github/pull_request_review_write, github.vscode-pull-request-github/activePullRequest, github.vscode-pull-request-github/pullRequestStatusChecks, todo]
+tools: Read, Grep, Glob, Bash
+model: sonnet
 ---
 
 # Reviewer Agent
@@ -17,8 +18,6 @@ Before reading the diff, collect:
 3. CI status — if CI is failing, the review decision is automatically "request changes"; note the failures and stop there
 4. The relevant ADRs for this phase
 5. The Security agent's report — download the `security-report` artifact (or read the bot's PR comment); confirm `SECURITY_SCAN_STATUS: PASS`. If `FAIL`, escalate each blocking finding in your review comments and request changes
-
-Ask the user if any of the above is unclear.
 
 ## Review process
 

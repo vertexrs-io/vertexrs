@@ -7,9 +7,6 @@ on:
       - planning
   workflow_dispatch:
 
-env:
-  COPILOT_MODEL: claude-sonnet-4.6
-
 jobs:
   sync:
     # For pull_request events, only run for PRs from this repo (not forks).
@@ -55,28 +52,25 @@ jobs:
         if: steps.merge.outputs.result == 'clean'
         run: git push origin planning
 
-      - name: Install Copilot CLI and attempt AI conflict resolution
+      - name: Install Claude Code CLI and attempt AI conflict resolution
         if: steps.merge.outputs.result == 'conflict'
-        run: npm install -g @github/copilot
+        run: npm install -g @anthropic-ai/claude-code
 
-      - name: Resolve conflict with Copilot
+      - name: Resolve conflict with Claude Code
         if: steps.merge.outputs.result == 'conflict'
         id: resolve
         env:
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
           git merge --no-edit origin/main || true
-          copilot \
-            --model $COPILOT_MODEL \
-            --prompt "Resolve the git merge conflicts in the working tree. \
+          claude -p "Resolve the git merge conflicts in the working tree. \
               This is a merge of main into the planning branch. \
               The plan is split across multiple files under docs/plans/. \
               Preserve all content from both sides — do not discard any checkboxes, \
               issue annotations, or plan text from any plan file. Once resolved, stage \
               the affected files and complete the merge commit." \
-            --no-ask-user \
-            --allow-all-tools
+            --model claude-haiku-4-5-20251001 \
+            --allowedTools "Read,Edit,Bash(git:*)"
           if git diff --quiet && git diff --cached --quiet; then
             echo "resolved=false" >> "$GITHUB_OUTPUT"
           else
@@ -109,7 +103,7 @@ jobs:
                 base: 'planning',
                 body: [
                   'Automated sync of `main` into `planning` failed due to a merge conflict.',
-                  'Copilot was unable to resolve it automatically.',
+                  'Claude was unable to resolve it automatically.',
                   '',
                   'Please resolve the conflict and merge this PR to keep the planning branch up to date.',
                 ].join('\n'),

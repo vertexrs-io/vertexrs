@@ -184,7 +184,7 @@ bench    → cargo bench (main merges only: compare new vs previous main baselin
 
 ## Instruction & Agent Files
 
-- Instruction files (`.instructions.md`), agent files (`.agent.md`), and skill files (`SKILL.md`) should each be **≤ 2 000 tokens**
+- Instruction files (`.instructions.md`), agent files (`.claude/agents/*.md`), and skill files (`SKILL.md`) should each be **≤ 2 000 tokens**
 - If a file grows beyond that, split it: extract the overflow into a focused sub-file and link it from the parent file
 - Keep each file tightly scoped to one topic — this makes token budgets easier to respect and makes individual files easier to reason about
 
@@ -200,11 +200,11 @@ bench    → cargo bench (main merges only: compare new vs previous main baselin
 | `.github/instructions/process/benchmarking.instructions.md` | Writing and reviewing benchmarks |
 | `.github/instructions/process/security.instructions.md` | Security-sensitive code |
 | `.github/instructions/process/pr-review.instructions.md` | Reviewing PRs |
-| `.github/agents/planner.agent.md` | Planner agent mode |
-| `.github/agents/architect.agent.md` | Architect agent mode |
-| `.github/agents/implementer.agent.md` | Implementer agent mode |
-| `.github/agents/reviewer.agent.md` | Reviewer agent mode |
-| `.github/agents/security.agent.md` | Security agent mode (PR security review) |
+| `.claude/agents/planner.md` | Planner agent persona |
+| `.claude/agents/architect.md` | Architect agent persona |
+| `.claude/agents/implementer.md` | Implementer agent persona |
+| `.claude/agents/reviewer.md` | Reviewer agent persona |
+| `.claude/agents/security.md` | Security agent persona (PR security review) |
 
 ## Architectural Decision Records
 
