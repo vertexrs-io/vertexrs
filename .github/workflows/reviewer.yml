@@ -93,3 +93,21 @@ jobs:
             --append-system-prompt "$(cat .claude/agents/reviewer.md)" \
             --model "$CLAUDE_MODEL" \
             --allowedTools "Read,Grep,Glob,Bash(git:*),Bash(gh:*)"
+
+      # ── Block PR if the Reviewer requested changes ──────────────────────────
+      # Ground truth is the review the agent just submitted, not agent-written
+      # text — read the actual review state back via the API. Mirrors
+      # security-scan.yml's "Fail on critical findings" step: turns this job
+      # red on the PR when the Reviewer's verdict is CHANGES_REQUESTED.
+      - name: Fail if Reviewer requested changes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          STATE=$(gh api "repos/$GITHUB_REPOSITORY/pulls/${PR_NUMBER}/reviews" \
+            --jq '[.[] | select(.user.login == "github-actions[bot]")] | last | .state // "NONE"')
+          echo "Reviewer's submitted review state: ${STATE}"
+          if [ "$STATE" = "CHANGES_REQUESTED" ]; then
+            echo "::error::Reviewer requested changes on PR #${PR_NUMBER} — see the PR review for details."
+            exit 1
+          fi
