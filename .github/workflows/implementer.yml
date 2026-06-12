@@ -101,11 +101,26 @@ jobs:
             echo "proceed=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # Mint a short-lived installation token for the vertexrs-bot-scheduler
+      # GitHub App. The agent pushes commits and opens/updates the PR with this
+      # token; using GITHUB_TOKEN here would suppress the downstream CI run
+      # (GitHub blocks chain-triggers from GITHUB_TOKEN), leaving ci.yml and
+      # bench.yml unfired on the implementer's PR and its follow-up pushes.
+      - uses: actions/create-github-app-token@v1
+        id: app-token
+        if: steps.check.outputs.proceed == 'true'
+        with:
+          app-id: ${{ secrets.SCHEDULER_APP_ID }}
+          private-key: ${{ secrets.SCHEDULER_APP_PRIVATE_KEY }}
+
       - uses: actions/checkout@v4
         if: steps.check.outputs.proceed == 'true'
         with:
           ref: main
           fetch-depth: 0
+          # Persist the App token (not GITHUB_TOKEN) so the agent's `git push`
+          # produces commits that trigger CI.
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Configure git
         if: steps.check.outputs.proceed == 'true'
@@ -140,7 +155,9 @@ jobs:
         if: steps.check.outputs.proceed == 'true'
         env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Open/convert the PR with the App token so the `pull_request` event
+          # triggers CI (a PR opened by GITHUB_TOKEN would not).
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           ISSUE_NUMBER: ${{ steps.issue.outputs.number }}
         run: |
           copilot \

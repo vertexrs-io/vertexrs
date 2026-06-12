@@ -278,10 +278,10 @@ Implemented as part of 2.2.0 above. All planned tests pass. See 2.2.0 implementa
 
 ### 2.6 Failure Mode Syntax
 
-- [ ] `node!(x = expr?)` → soft failure, NA on error
-- [ ] `node!(x = expr!)` → hard failure, halt on error
-- [ ] `node!(x = expr, pure = false)` → impure node, always fully dirty
-- [ ] Default: pure = true, failure = soft
+- [ ] `node!(x = expr?)` → soft failure, NA on error <!-- #14 -->
+- [ ] `node!(x = expr!)` → hard failure, halt on error <!-- #14 -->
+- [ ] `node!(x = expr, pure = false)` → impure node, always fully dirty <!-- #14 -->
+- [ ] Default: pure = true, failure = soft <!-- #14 -->
 
 ### 2.7 Kernel Fusion Pass
 

@@ -29,12 +29,26 @@ jobs:
       cancel-in-progress: false
 
     steps:
+      # Mint a short-lived installation token for the vertexrs-bot-scheduler
+      # GitHub App. The agent pushes review fixes to the PR branch with this
+      # token; a `synchronize` push authored by GITHUB_TOKEN would NOT re-trigger
+      # CI (GitHub blocks chain-triggers from GITHUB_TOKEN), so ci.yml/bench.yml
+      # would stay stale on exactly the push the reviewer is waiting on.
+      - uses: actions/create-github-app-token@v1
+        id: app-token
+        with:
+          app-id: ${{ secrets.SCHEDULER_APP_ID }}
+          private-key: ${{ secrets.SCHEDULER_APP_PRIVATE_KEY }}
+
       # Pin to immutable SHA — mutable branch ref is a TOCTOU vector.
       # Branch tracking is restored afterwards so the agent can push.
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
+          # Persist the App token (not GITHUB_TOKEN) so the agent's `git push`
+          # to the PR branch fires the `pull_request` synchronize event and CI re-runs.
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Configure git
         run: |
@@ -71,7 +85,9 @@ jobs:
       - name: Run Implementer agent to address review
         env:
           COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # App token so the agent's `gh` calls (and any PR update) act as the
+          # app and keep CI chain-triggers working.
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REVIEWER: ${{ github.event.review.user.login }}
           REVIEW_ID: ${{ github.event.review.id }}
