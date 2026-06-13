@@ -5,7 +5,7 @@ on:
     types: [submitted]
 
 env:
-  COPILOT_MODEL: claude-sonnet-4.6
+  CLAUDE_MODEL: claude-sonnet-4-6
 
 jobs:
   address-comments:
@@ -70,8 +70,8 @@ jobs:
           git checkout -B "$BRANCH"
           git branch --set-upstream-to="origin/$BRANCH" "$BRANCH"
 
-      - name: Install Copilot CLI
-        run: npm install -g @github/copilot
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
 
       - name: Validate reviewer login
         env:
@@ -84,7 +84,7 @@ jobs:
 
       - name: Run Implementer agent to address review
         env:
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           # App token so the agent's `gh` calls (and any PR update) act as the
           # app and keep CI chain-triggers working.
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
@@ -97,12 +97,8 @@ jobs:
           # threads" would pull in reply comments from non-members — the
           # trigger gate only validates the reviewer, not other thread
           # participants. That is a prompt-injection vector here because the
-          # Implementer runs cargo, pushes commits, and has COPILOT_PAT in
-          # scope with --allow-all-tools.
-          copilot \
-            --agent implementer \
-            --model $COPILOT_MODEL \
-            --prompt "PR #${PR_NUMBER} has received a 'Request changes' review from ${REVIEWER}. \
+          # Implementer runs cargo and pushes commits with broad tool access.
+          claude -p "PR #${PR_NUMBER} has received a 'Request changes' review from ${REVIEWER}. \
               Read ONLY the specific triggering review and its inline comments by fetching: \
                 'gh api repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews/${REVIEW_ID}' \
                 'gh api repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews/${REVIEW_ID}/comments' \
@@ -111,5 +107,6 @@ jobs:
               Address every requested change, following the same conventions and ADRs \
               used in the original implementation. Run cargo make ci and fix every failure. \
               Push the fixes to the current branch. Do not merge the PR." \
-            --no-ask-user \
-            --allow-all-tools
+            --append-system-prompt "$(cat .claude/agents/implementer.md)" \
+            --model "$CLAUDE_MODEL" \
+            --allowedTools "Read,Grep,Glob,Edit,Write,WebFetch,WebSearch,TodoWrite,Bash(git:*),Bash(gh:*),Bash(cargo:*)"

@@ -28,8 +28,8 @@ flowchart TD
     SCHED -->|no — remains awaiting-agent\nuntil next PR close| AWAIT
     SCHED -->|yes| READY[ready ± trivial]
 
-    READY -->|trivial label present\nimplementer.yml triggers| IMP[Implementer\nCopilot CLI]
-    READY -->|no trivial label\narchitect.yml triggers| AR[Architect\nCopilot CLI]
+    READY -->|trivial label present\nimplementer.yml triggers| IMP[Implementer\nClaude Code CLI]
+    READY -->|no trivial label\narchitect.yml triggers| AR[Architect\nClaude Code CLI]
     AR -->|creates feat/* branch\ncommits design docs\nopens draft PR to main\nsets awaiting-design-approval| ADA[awaiting-design-approval]
     ADA -->|human leaves PR review / issue comment\n(architect-response.yml / architect-comment-*.yml)| AR_REF[Architect\nrefinement]
     AR_REF -->|updates design docs\ncommits + replies| ADA
@@ -38,7 +38,7 @@ flowchart TD
 
     IMP -->|picks up feat/* branch\nimplements, runs CI\nconverts draft PR to ready| PR2[PR: feat/* → main]
 
-    PR2 --> REV[Reviewer\nCopilot CLI]
+    PR2 --> REV[Reviewer\nClaude Code CLI]
     REV -->|posts review comments| PR2
     PR2 -->|human submits\nRequest Changes| RC[Review:\nchanges requested]
     RC -->|pr-response.yml\ntriggers on review| IMP2[Implementer\naddresses comments]
@@ -58,7 +58,7 @@ flowchart TD
 
 The Architect is **required for all non-trivial issues**. The Planner classifies each issue at creation time — trivial issues receive a `trivial` label alongside `queued` and bypass the Architect stage entirely.
 
-Each stage has a dedicated agent mode (`.github/agents/`):
+Each stage has a dedicated agent persona (`.claude/agents/`):
 
 | Stage | Agent | What it does |
 |---|---|---|
@@ -103,6 +103,8 @@ When a `feat/*` PR is closed (merged or abandoned) the workflow re-evaluates the
 | `planning` | Long-lived. Holds only `docs/plans/` files. Never merged to `main` on a schedule — only at deliberate phase checkpoints. Regularly synced FROM `main` via an automated workflow. |
 | `plan/<description>` | Short-lived session branches created from `planning`. Planner works here. Merged into `planning` via PR. Deleted after merge. |
 | `feat/<issue-number>-<slug>` | Short-lived implementation branches created from `main`. Architect seeds with design docs; Implementer adds the code. Merged into `main` via PR. |
+
+Human-driven branches outside this pipeline (no associated issue) follow `<type>/<description>` using conventional-commit prefixes — `feat`, `fix`, `chore`, `docs`, `ci`, etc.
 
 ## Keeping `planning` in sync with `main`
 

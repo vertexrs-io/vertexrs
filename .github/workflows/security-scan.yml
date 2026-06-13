@@ -1,11 +1,11 @@
 name: Security scan
 
 # Runs the Security agent on every PR. The agent reviews all changed files
-# against OWASP Top 10 and project security conventions (security.agent.md),
+# against OWASP Top 10 and project security conventions (security.md),
 # then writes security-report.md. This workflow distributes the report and
 # greps for SECURITY_SCAN_STATUS: FAIL to block the PR if critical issues exist.
 #
-# All review logic lives in .github/agents/security.agent.md — not here.
+# All review logic lives in .claude/agents/security.md — not here.
 
 on:
   pull_request:
@@ -22,12 +22,12 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  COPILOT_MODEL: claude-sonnet-4.6
+  CLAUDE_MODEL: claude-sonnet-4-6
 
 jobs:
   security-scan:
     name: Security scan
-    # Skip fork PRs: secrets.COPILOT_PAT is unavailable there and the agent
+    # Skip fork PRs: secrets.CLAUDE_CODE_OAUTH_TOKEN is unavailable there and the agent
     # step would fail rather than degrade gracefully.
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
@@ -38,27 +38,24 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
-      - name: Install Copilot CLI
-        run: npm install -g @github/copilot
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
 
-      # The agent reads all changed files, reviews them against security.agent.md,
+      # The agent reads all changed files, reviews them against security.md,
       # and writes security-report.md to the workspace root.
       - name: Run Security agent
         env:
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
-          GH_TOKEN:             ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER:            ${{ github.event.pull_request.number }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          GH_TOKEN:                ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER:               ${{ github.event.pull_request.number }}
         run: |
-          copilot \
-            --agent security \
-            --model "$COPILOT_MODEL" \
-            --prompt "Review PR #${PR_NUMBER} for security issues. \
-              Follow every step in .github/agents/security.agent.md exactly. \
-              Read all changed files, check against the criteria defined in the agent, \
+          claude -p "Review PR #${PR_NUMBER} for security issues. \
+              Read all changed files, check against the criteria in your persona, \
               then write a complete security-report.md to the workspace root. \
               The report must include the SECURITY_SCAN_STATUS line as specified." \
-            --no-ask-user \
-            --allow-all-tools
+            --append-system-prompt "$(cat .claude/agents/security.md)" \
+            --model "$CLAUDE_MODEL" \
+            --allowedTools "Read,Grep,Glob,Bash(git:*),Bash(gh:*),Write"
 
       # ── Distribute report ──────────────────────────────────────────────────
 

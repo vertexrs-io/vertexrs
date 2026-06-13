@@ -7,14 +7,14 @@ on:
       - planning
 
 env:
-  COPILOT_MODEL: claude-sonnet-4.6
+  CLAUDE_MODEL: claude-sonnet-4-6
 
 jobs:
   planner-issues:
     # Only fires for plan/* → planning PRs from this repo, opened by a trusted author.
     # The same-repo filter alone is not sufficient: a CONTRIBUTOR or FIRST_TIME_CONTRIBUTOR
     # could push a crafted plan/* branch with a malicious PR body that the Planner agent
-    # would ingest under --allow-all-tools + secrets.COPILOT_PAT.
+    # would ingest with broad tool access + secrets.CLAUDE_CODE_OAUTH_TOKEN.
     if: |
       startsWith(github.head_ref, 'plan/') &&
       github.event.pull_request.head.repo.full_name == github.repository &&
@@ -58,21 +58,18 @@ jobs:
           git checkout -B "$BRANCH" "$SHA"
           git branch --set-upstream-to="origin/$BRANCH" "$BRANCH"
 
-      - name: Install Copilot CLI
-        run: npm install -g @github/copilot
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
 
       - name: Run Planner agent (issue creation)
         env:
-          COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_PAT }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_URL: ${{ github.event.pull_request.html_url }}
         run: |
-          copilot \
-            --agent planner \
-            --model $COPILOT_MODEL \
-            --prompt "Process PR #${PR_NUMBER} (${PR_URL}) using the Issue creation workflow \
-              from .github/agents/planner.agent.md. \
+          claude -p "Process PR #${PR_NUMBER} (${PR_URL}) using the Issue creation workflow \
+              from your persona. \
               Read the PR description to identify which phases or sections are targeted, \
               then read the relevant phase file(s) under docs/plans/ in the current \
               workspace and collect all unannotated checkboxes (those without a <!-- #N --> \
@@ -83,5 +80,6 @@ jobs:
               Create them directly (the PR open is the human's implicit approval) and commit \
               inline <!-- #N --> annotations back to the relevant phase file(s) under \
               docs/plans/ on this PR branch." \
-            --no-ask-user \
-            --allow-all-tools
+            --append-system-prompt "$(cat .claude/agents/planner.md)" \
+            --model "$CLAUDE_MODEL" \
+            --allowedTools "Read,Grep,Glob,Edit,Write,WebFetch,WebSearch,TodoWrite,Bash(git:*),Bash(gh:*)"
