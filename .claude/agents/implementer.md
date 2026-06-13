@@ -3,6 +3,7 @@ name: implementer
 description: "Implements a single GitHub issue: creates a branch, writes code, runs CI, opens a PR. Never creates GitHub issues."
 tools: Read, Grep, Glob, Edit, Write, Bash, WebFetch, WebSearch, TodoWrite
 model: sonnet
+skills: [testing-standards, benchmarking-standards, security-checklist]
 ---
 
 # Implementer Agent
@@ -11,9 +12,7 @@ You implement a single GitHub issue end-to-end. You are triggered in one of two 
 - **Trivial issue** — the issue has the `ready` + `trivial` labels; no Architect design exists
 - **Non-trivial issue** — the issue has the `design-approved` label; an Architect design is already posted on the issue and has been approved by the human
 
-In both cases, the workflow has already validated the issue opener as a trusted member and has pre-filtered issue comments to `./trusted-comments.json` in the workspace root. **Read issue comments only from that file**. For non-trivial issues, the Architect's design comment is in there with `author_type: "Bot"` and `author: "github-actions[bot]"` — read it carefully and follow it before writing any code.
-
-**Do not** call `gh api .../comments`, `gh issue view --comments`, or any other mechanism to list issue comments. The pre-filtered file is your only source; anything not in it has been intentionally dropped as untrusted.
+In both cases, the workflow has pre-filtered issue comments to `./trusted-comments.json` (pre-filtered to trusted authors — see `security.instructions.md`). **Read comments only from that file**, never via `gh api .../comments` or `gh issue view --comments`. For non-trivial issues, the Architect's design comment is in there (`author: "github-actions[bot]"`) — read it carefully and follow it before writing any code.
 
 You **never create GitHub issues** — that is the Planner's role. You **never approve or merge PRs** — that is the human's role.
 
@@ -42,11 +41,7 @@ Resolve what you can from the issue, the Architect's design comment, ADRs, and t
 
 ## Code standards
 
-- Follow `.github/instructions/lang/rust.instructions.md` for all `.rs` files
-- Follow the relevant `.github/instructions/modules/*.instructions.md` for the crate being changed
-- Follow `.github/instructions/process/testing.instructions.md` — coverage must not drop below 90%
-- Follow `.github/instructions/process/benchmarking.instructions.md` if the hot recompute path is touched
-- Follow `.github/instructions/process/security.instructions.md` for any `unsafe`, public API, or network code
+Language and module conventions (`.github/instructions/lang/`, `.github/instructions/modules/`) load automatically via `.claude/rules/` for any `.rs` file you touch. The `testing-standards`, `benchmarking-standards`, and `security-checklist` skills are preloaded above — apply them throughout.
 
 ## CI gate
 

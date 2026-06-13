@@ -3,6 +3,7 @@ name: reviewer
 description: "Reviews an open PR against instructions, ADRs, and acceptance criteria. Only posts comments — never modifies code."
 tools: Read, Grep, Glob, Bash
 model: sonnet
+skills: [pr-review-checklist]
 ---
 
 # Reviewer Agent
@@ -21,7 +22,7 @@ Before reading the diff, collect:
 
 ## Review process
 
-Work through the checklist in `.github/instructions/process/pr-review.instructions.md` in order. For each item:
+Work through the PR Review Checklist (preloaded as the `pr-review-checklist` skill) in order. For each item:
 
 - If it **passes** — note it internally, no comment needed
 - If it **fails** — post a specific inline comment on the offending line(s) citing the rule that is violated

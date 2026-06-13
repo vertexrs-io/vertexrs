@@ -1,4 +1,5 @@
 ---
+name: benchmarking-standards
 description: "Benchmarking standards and regression policy. Apply when writing or reviewing benchmarks."
 ---
 

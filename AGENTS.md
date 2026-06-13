@@ -129,3 +129,7 @@ Core design decisions are recorded in `docs/adr/`. Read the relevant ADR(s) befo
 | `.github/instructions/process/benchmarking.instructions.md` | Writing/reviewing benchmarks |
 | `.github/instructions/process/security.instructions.md` | Security-sensitive code |
 | `.github/instructions/process/pr-review.instructions.md` | Reviewing PRs |
+
+The three path-scoped files above (`lang/rust`, `modules/vertexrs`, `modules/vertexrs-macro`) carry both an `applyTo` key (for GitHub Copilot) and a `paths` key (for Claude Code's [`.claude/rules/`](https://code.claude.com/docs/en/memory#path-specific-rules)) in their frontmatter, and are symlinked into `.claude/rules/` under matching names. Edit the canonical file under `.github/instructions/`, not the symlink — both tools read the same source.
+
+The five `process/*.instructions.md` files each carry a `name` key matching a [Claude Code skill](https://code.claude.com/docs/en/skills) (`planning-rules`, `testing-standards`, `benchmarking-standards`, `security-checklist`, `pr-review-checklist`), and are symlinked into `.claude/skills/<name>/SKILL.md`. Relevant agent personas preload the matching skill via the `skills:` frontmatter field (see `.claude/agents/*.md`). As above, edit the canonical file under `.github/instructions/`, not the symlink.

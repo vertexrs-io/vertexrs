@@ -1,4 +1,5 @@
 ---
+name: testing-standards
 description: "Testing standards and coverage requirements. Apply when writing or reviewing tests."
 ---
 

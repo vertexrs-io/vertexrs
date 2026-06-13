@@ -86,59 +86,33 @@ cargo fmt --check                    # verify formatting (CI); use `cargo fmt` l
 
 ## Testing Policy
 
-Every PR must include appropriate test coverage for the changed code:
+Every PR must include test coverage for the changed code, with **line coverage ≥ 90%** across `vertexrs` and `vertexrs-macro` (measured via `cargo llvm-cov --all-features --lib`). Tests must be AC-driven, deterministic, and use exact expected values — no `unwrap()` in assertions.
 
-| Test type | When required |
-|---|---|
-| **Unit tests** | All non-trivial functions; place in a `#[cfg(test)]` module in the same file |
-| **Integration tests** | New pipeline behaviours, macro-generated code paths; place in `vertexrs/src/lib.rs` test module |
-| **Doctests** | All public API items with an example worth showing |
-| **Benchmarks** | Every critical code path and any code on the hot recompute path; use `criterion` |
-
-Rules:
-- **Line coverage must be ≥ 90%** across the `vertexrs` and `vertexrs-macro` crates. Measure with `cargo llvm-cov --all-features --lib` (requires `cargo-llvm-cov`). PRs that drop coverage below 90% must include a written justification.
-- Tests must be deterministic and not depend on timing
-- Use exact expected values; avoid `unwrap()` in test assertions — use `assert_eq!` / `assert!(matches!(...))` clearly
-- Benchmarks that have a Polars equivalent **must** include a `#[test]` correctness assertion comparing outputs within tolerance (`abs(vtx − polars) < 1e-6` for f32/f64; exact equality for integer types; f16 widened to f32 before comparison)
+Full rules — test types and placement, forbidden patterns, the Polars correctness-assertion requirement — are in `.github/instructions/process/testing.instructions.md` (the `testing-standards` skill, preloaded for the Implementer).
 
 ---
 
 ## Benchmarking Policy
 
-Benchmarks live in `vertexrs/benches/` and are written using `criterion`. See `docs/plans/phase-02-macro-system.md` for the full benchmark plan.
+Benchmarks live in `vertexrs/benches/` using `criterion`. Every benchmark on the hot recompute path must be cross-dtype (`f32`, `f64`, `i32`, `i64`, `u32`, `u64`, `f16`, no dtype > 2× slower than the fastest), and a Polars-equivalent benchmark must include a correctness `#[test]`. Save a baseline on every merge to `main`; regressions > 15% must be justified in the PR.
 
-Key rules:
-- Benchmark new code paths on the recompute hot path before merging
-- Every benchmark file with a Polars counterpart must assert correctness — a faster but wrong result is not acceptable
-- Save a baseline on every merge to `main`: `cargo bench --save-baseline main`
-- Regressions > 15% on throughput benchmarks must be explained and justified in the PR
-- Cross-dtype benchmarks are parametrized over `f32`, `f64`, `i32`, `i64`, `u32`, `u64`, `f16` — no single type should be > 2× slower than the fastest for the same logical pipeline
+Full rules are in `.github/instructions/process/benchmarking.instructions.md` (the `benchmarking-standards` skill, preloaded for the Implementer).
 
 ---
 
-## Error Handling
+## Error Handling & Code Style
 
-Use the right mechanism for the situation:
+`panic!`/`assert!` for invariant violations, `Result<T, E>` for recoverable failures, `Option<T>` for absence — never `unwrap()` in library code. Code follows the [Rust Style Guide](https://doc.rust-lang.org/style-guide/) (`rustfmt`/`clippy -D warnings` enforced in CI), with `///` docs on all public items.
 
-| Situation | Mechanism |
-|---|---|
-| Programmer invariant violated (should never happen) | `panic!` / `assert!` / `unreachable!` |
-| Recoverable operation that can fail | `Result<T, E>` with a descriptive error type |
-| Domain-specific pipeline errors | Custom error type (e.g. `PipelineError`) |
-| Missing optional value | `Option<T>` — do not use `Result` for absence |
-| Node kernel panic in Isolate mode | Caught and stored in `Pipeline::isolated_errors` |
-
-Never silence errors with `let _ = ...` unless the intent is explicitly documented with a comment.  
-Never `unwrap()` in library code — only in tests and examples.
+Full rules are in `.github/instructions/lang/rust.instructions.md`, loaded automatically for any `.rs` file via `.claude/rules/`.
 
 ---
 
 ## Unsafe Code
 
-- Unsafe is permitted **only in performance-critical hot paths** where safe alternatives have measurably worse throughput
-- Every `unsafe` block must be preceded by a `// SAFETY:` comment explaining why it is sound
-- Unsafe must not cross public API boundaries — wrap in a safe public function
-- Prefer `bytemuck` for transmute-like operations over raw pointer casts
+Unsafe is permitted only in performance-critical hot paths, requires a `// SAFETY:` comment, must not cross public API boundaries, and must have tests that would catch unsound behaviour.
+
+Full rules are in `.github/instructions/process/security.instructions.md` (the `security-checklist` skill, preloaded for the Implementer and Security agent).
 
 ---
 
@@ -151,17 +125,7 @@ Never `unwrap()` in library code — only in tests and examples.
 - Feature-gate heavy dev-deps where possible (e.g. `bench-polars` feature flag for Polars benchmarks)
 - Never add a runtime dependency for something achievable with a 20-line safe Rust function
 
----
-
-## Code Style
-
-- Follow the [Rust Style Guide](https://doc.rust-lang.org/style-guide/); enforced by `rustfmt`
-- Run `cargo fmt` before every commit; CI runs `cargo fmt --check`
-- Run `cargo clippy -- -D warnings`; CI fails on any lint warning
-- All public functions, types, traits, and modules must have `///` doc comments
-- Non-obvious logic must have inline `//` comments explaining *why*, not *what*
-- Keep functions short and single-purpose; prefer pure functions over side-effecting ones
-- Use `#[must_use]` on any `Result` or value-returning function where ignoring the return is likely a bug
+Security-sensitive dependency rules (audit policy, changelog review for crates like `ring`/`rustls`) are in `.github/instructions/process/security.instructions.md` (the `security-checklist` skill).
 
 ---
 
@@ -205,6 +169,8 @@ bench    → cargo bench (main merges only: compare new vs previous main baselin
 | `.claude/agents/implementer.md` | Implementer agent persona |
 | `.claude/agents/reviewer.md` | Reviewer agent persona |
 | `.claude/agents/security.md` | Security agent persona (PR security review) |
+
+The path-scoped files (`lang/rust`, `modules/vertexrs`, `modules/vertexrs-macro`) are dual-purpose: `applyTo` for Copilot, `paths` for Claude Code's `.claude/rules/` (symlinked there — see AGENTS.md for details). The five `process/*.instructions.md` files are similarly symlinked into `.claude/skills/<name>/SKILL.md` (`planning-rules`, `testing-standards`, `benchmarking-standards`, `security-checklist`, `pr-review-checklist`) so Claude Code can preload them into the relevant agent persona's context via the `skills:` frontmatter field. Edit the canonical file under `.github/instructions/`, not the symlink.
 
 ## Architectural Decision Records
 
