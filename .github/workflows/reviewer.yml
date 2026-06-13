@@ -69,6 +69,11 @@ jobs:
       - name: Install Claude Code CLI
         run: npm install -g @anthropic-ai/claude-code
 
+      # rust-analyzer backs the LSP tool below (enabled via .claude/settings.json),
+      # giving the agent type-aware navigation of macro-generated code.
+      - name: Install rust-analyzer
+        run: rustup component add rust-analyzer
+
       # ci.yml, bench.yml, and security-scan.yml run in parallel on the same
       # push — give them a chance to finish so the Reviewer sees real CI
       # status and the Security agent's report. Continue regardless of
@@ -128,7 +133,7 @@ jobs:
               Do not modify code, push commits, or merge the PR." \
             --append-system-prompt "$(cat .claude/agents/reviewer.md)" \
             --model "$CLAUDE_MODEL" \
-            --allowedTools "Read,Grep,Glob,Bash(git:*),Bash(gh:*)"
+            --allowedTools "Read,Grep,Glob,LSP,Bash(git:*),Bash(gh:*)"
 
       # ── Block PR if the Reviewer requested changes ──────────────────────────
       # Ground truth is the review the agent just submitted, not agent-written

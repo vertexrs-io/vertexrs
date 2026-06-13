@@ -132,6 +132,12 @@ jobs:
         if: steps.check.outputs.proceed == 'true'
         run: npm install -g @anthropic-ai/claude-code
 
+      # rust-analyzer backs the LSP tool below (enabled via .claude/settings.json),
+      # giving the agent type-aware navigation of macro-generated code.
+      - name: Install rust-analyzer
+        if: steps.check.outputs.proceed == 'true'
+        run: rustup component add rust-analyzer
+
       # Pre-filter issue comments at the workflow level. The agent is
       # instructed below to read ONLY this file — it must not call `gh api`
       # to list or search comments itself. Trusted = bots (e.g. the Architect
@@ -177,4 +183,4 @@ jobs:
               Do not skip the CI gate. Do not merge the PR." \
             --append-system-prompt "$(cat .claude/agents/implementer.md)" \
             --model "$CLAUDE_MODEL" \
-            --allowedTools "Read,Grep,Glob,Edit,Write,WebFetch,WebSearch,TodoWrite,Bash(git:*),Bash(gh:*),Bash(cargo:*)"
+            --allowedTools "Read,Grep,Glob,LSP,Edit,Write,WebFetch,WebSearch,TodoWrite,Bash(git:*),Bash(gh:*),Bash(cargo:*)"

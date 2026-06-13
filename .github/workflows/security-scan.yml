@@ -41,6 +41,11 @@ jobs:
       - name: Install Claude Code CLI
         run: npm install -g @anthropic-ai/claude-code
 
+      # rust-analyzer backs the LSP tool below (enabled via .claude/settings.json),
+      # giving the agent type-aware navigation of macro-generated code.
+      - name: Install rust-analyzer
+        run: rustup component add rust-analyzer
+
       # The agent reads all changed files, reviews them against security.md,
       # and writes security-report.md to the workspace root.
       - name: Run Security agent
@@ -55,7 +60,7 @@ jobs:
               The report must include the SECURITY_SCAN_STATUS line as specified." \
             --append-system-prompt "$(cat .claude/agents/security.md)" \
             --model "$CLAUDE_MODEL" \
-            --allowedTools "Read,Grep,Glob,Bash(git:*),Bash(gh:*),Write"
+            --allowedTools "Read,Grep,Glob,LSP,Bash(git:*),Bash(gh:*),Write"
 
       # ── Distribute report ──────────────────────────────────────────────────
 

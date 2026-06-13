@@ -231,6 +231,12 @@ jobs:
         if: steps.pr_data.outputs.skip != 'true'
         run: npm install -g @anthropic-ai/claude-code
 
+      # rust-analyzer backs the LSP tool below (enabled via .claude/settings.json),
+      # giving the agent type-aware navigation of macro-generated code.
+      - name: Install rust-analyzer
+        if: steps.pr_data.outputs.skip != 'true'
+        run: rustup component add rust-analyzer
+
       - name: Run Architect refinement
         if: steps.pr_data.outputs.skip != 'true'
         env:
@@ -258,4 +264,4 @@ jobs:
               Do not write any .rs source files. Do not set design-approved." \
             --append-system-prompt "$(cat .claude/agents/architect.md)" \
             --model "$CLAUDE_MODEL" \
-            --allowedTools "Read,Grep,Glob,Edit,Write,WebFetch,WebSearch,TodoWrite,Bash(git:*),Bash(gh:*)"
+            --allowedTools "Read,Grep,Glob,LSP,Edit,Write,WebFetch,WebSearch,TodoWrite,Bash(git:*),Bash(gh:*)"
