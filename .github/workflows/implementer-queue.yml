@@ -33,7 +33,7 @@ jobs:
       # Mint a short-lived installation token for the vertexrs-bot-scheduler
       # GitHub App. Using GITHUB_TOKEN here would suppress the downstream
       # 'ready' label event (GitHub blocks chain-triggers from GITHUB_TOKEN),
-      # leaving architect.yml/implementer.yml unfired.
+      # leaving implementer.yml unfired for trivial issues.
       - uses: actions/create-github-app-token@v1
         id: app-token
         with:
@@ -52,16 +52,12 @@ jobs:
 
           # A slot is in use whenever an open issue holds any in-flight label.
           # Labels are mutually exclusive: agents remove the old label before adding the next.
+          # For non-trivial issues, 'ready' covers the whole local Architect
+          # session — there is no separate awaiting-design-approval state.
           READY=$(gh issue list \
             --repo "$GITHUB_REPOSITORY" \
             --state open \
             --label 'ready' \
-            --json number \
-            --jq 'length')
-          DESIGN=$(gh issue list \
-            --repo "$GITHUB_REPOSITORY" \
-            --state open \
-            --label 'awaiting-design-approval' \
             --json number \
             --jq 'length')
           APPROVED=$(gh issue list \
@@ -79,8 +75,8 @@ jobs:
             --json number \
             --jq 'length')
 
-          USED=$(( READY + DESIGN + APPROVED + OPEN_PRS ))
-          echo "Slots in use: $USED / $LIMIT  (ready=$READY, awaiting-design-approval=$DESIGN, design-approved=$APPROVED, open_prs=$OPEN_PRS)"
+          USED=$(( READY + APPROVED + OPEN_PRS ))
+          echo "Slots in use: $USED / $LIMIT  (ready=$READY, design-approved=$APPROVED, open_prs=$OPEN_PRS)"
           echo "used=$USED" >> "$GITHUB_OUTPUT"
           echo "limit=$LIMIT" >> "$GITHUB_OUTPUT"
 

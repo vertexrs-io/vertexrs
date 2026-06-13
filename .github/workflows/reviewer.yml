@@ -21,8 +21,8 @@ env:
 jobs:
   review:
     # Only review feat/* PRs once they're out of draft — draft PRs are still
-    # in the design/implementation phase (architect-response.yml /
-    # implementer.yml own those). Same-repo only: secrets.CLAUDE_CODE_OAUTH_TOKEN
+    # in the design (local Architect session) or implementation
+    # (implementer.yml) phase. Same-repo only: secrets.CLAUDE_CODE_OAUTH_TOKEN
     # is unavailable on fork PRs.
     if: |
       github.event.pull_request.draft == false &&
@@ -39,10 +39,10 @@ jobs:
       # Resolve the linked issue from the PR body's closing keyword (the same
       # pattern pr-issue-link.yml requires) and verify its opener is a trusted
       # member before the agent reads any of its content. Closes the same
-      # author_association gap that architect.yml/implementer.yml already
-      # close for issue-triggered runs — without this, a PR could link an
-      # issue opened by an untrusted account and the Reviewer (pull-requests:
-      # write, broad gh access) would ingest its body as agent input.
+      # author_association gap that implementer.yml already closes for
+      # issue-triggered runs — without this, a PR could link an issue opened
+      # by an untrusted account and the Reviewer (pull-requests: write, broad
+      # gh access) would ingest its body as agent input.
       - name: Resolve and verify linked issue
         id: linked-issue
         env:
