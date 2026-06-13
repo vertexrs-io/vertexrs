@@ -26,12 +26,13 @@ flowchart TD
 
     AWAIT -->|implementer-queue.yml\nslot available?| SCHED{slot\nfree?}
     SCHED -->|no — remains awaiting-agent\nuntil next PR close| AWAIT
-    SCHED -->|yes| READY[ready ± trivial]
+    SCHED -->|yes & trivial| READY[ready]
+    SCHED -->|yes & non-trivial| AWD[awaiting-design]
 
-    READY -->|trivial label present\nimplementer.yml triggers| IMP[Implementer\nClaude Code CLI]
-    READY -->|non-trivial\nhuman runs Architect\nlocally, VS Code| AR[Architect\nlocal session]
+    READY -->|implementer.yml triggers| IMP[Implementer\nClaude Code CLI]
+    AWD -->|human runs Architect\nlocally, VS Code| AR[Architect\nlocal session]
     AR -->|creates feat/* branch\ncommits design docs\nopens draft PR to main\nposts design summary on issue| ADRAFT[draft PR +\ndesign summary]
-    ADRAFT -->|human removes ready\nsets design-approved| DA[design-approved]
+    ADRAFT -->|human removes awaiting-design\nsets design-approved| DA[design-approved]
     DA -->|implementer.yml triggers| IMP
 
     IMP -->|picks up feat/* branch\nimplements, runs CI\nconverts draft PR to ready| PR2[PR: feat/* → main]
@@ -50,6 +51,7 @@ flowchart TD
     style ISSUES fill:#fff3cd,stroke:#ffc107
     style AWAIT fill:#fff3cd,stroke:#ffc107
     style READY fill:#cce5ff,stroke:#004085
+    style AWD fill:#fff3cd,stroke:#ffc107
     style AR fill:#f0f0f0,stroke:#666
     style ADRAFT fill:#fff3cd,stroke:#ffc107
     style DA fill:#d4edda,stroke:#28a745
@@ -62,13 +64,13 @@ Each stage has a dedicated agent persona (`.claude/agents/`):
 | Stage | Agent | What it does |
 |---|---|---|
 | Plan + Backlog | `Planner` | Works with the human through Q&A to define and refine the plan; writes plan files; creates GitHub issues labelled `queued` (± `trivial`); annotates plan files with issue numbers; commits to a `plan/*` session branch; opens PR into `planning` |
-| Schedule | Workflow | `implementer-queue.yml` — fires on `awaiting-agent` label and on `feat/*` PR close; promotes the oldest `awaiting-agent` issue to `ready` when the slot count is below the limit |
-| Design | `Architect` | Run **locally and interactively** by a human (like the Planner) against a `ready`, non-trivial issue; creates `feat/<issue-number>-<slug>` branch from `main`, commits design docs (`docs/design/`, `docs/adr/` if needed), opens a draft PR to `main`, posts a design summary on the issue. The human iterates live, then removes `ready` and sets `design-approved` themselves when satisfied |
+| Schedule | Workflow | `implementer-queue.yml` — fires on `awaiting-agent` label and on `feat/*` PR close; promotes the oldest `awaiting-agent` issue to `ready` (trivial) or `awaiting-design` (non-trivial) when the slot count is below the limit |
+| Design | `Architect` | Run **locally and interactively** by a human (like the Planner) against an `awaiting-design` issue; creates `feat/<issue-number>-<slug>` branch from `main`, commits design docs (`docs/design/`, `docs/adr/` if needed), opens a draft PR to `main`, posts a design summary on the issue. The human iterates live, then removes `awaiting-design` and sets `design-approved` themselves when satisfied |
 | Implement | `Implementer` | Triggered by `ready` (trivial) or `design-approved` (non-trivial); picks up the existing `feat/*` branch (or creates it for trivial), implements, runs CI, converts draft PR to ready |
 | Review | `Reviewer` | Reads the PR diff, checks against instructions and ADRs, posts comments — never touches code |
 | Approve | **Human** | Final approval and merge; agents never merge |
 
-**Role boundaries are strict.** Only the Planner edits the build plan and creates GitHub issues. Only the Scheduler sets the `ready` label. Only humans approve and merge PRs.
+**Role boundaries are strict.** Only the Planner edits the build plan and creates GitHub issues. Only the Scheduler sets the `ready` and `awaiting-design` labels. Only humans approve and merge PRs.
 
 ## Issue label pipeline
 
@@ -79,14 +81,15 @@ Issues move through a fixed sequence of labels. No agent or automation skips or 
 | `queued` | Planner | Issue created; not yet human-reviewed |
 | `trivial` | Planner | Co-applied with `queued`; issue bypasses the Architect stage |
 | `awaiting-agent` | Human | Reviewed and approved for implementation; waiting for a concurrency slot |
-| `ready` | Scheduler | Slot granted; triggers Implementer directly (trivial), or signals a human to run the Architect locally (non-trivial) |
-| `design-approved` | Human | Design complete (produced via a local Architect session for non-trivial issues); triggers Implementer |
+| `ready` | Scheduler | Slot granted (trivial issue only); triggers Implementer automatically |
+| `awaiting-design` | Scheduler | Slot granted (non-trivial issue); signals a human to run the Architect locally — nothing fires automatically |
+| `design-approved` | Human | Architect session complete; triggers Implementer |
 
 ### Concurrency limit
 
 `implementer-queue.yml` enforces a cap on the number of concurrently in-flight issues. The limit is stored as the `IMPLEMENTER_CONCURRENCY_LIMIT` GitHub Actions repository variable (default: `1`).
 
-A slot is **in use** when an open issue holds the label `ready` or `design-approved`, or has an associated open `feat/*` PR. The scheduler counts all such slots before promoting the next `awaiting-agent` issue.
+A slot is **in use** when an open issue holds the label `ready`, `awaiting-design`, or `design-approved`, or has an associated open `feat/*` PR. The scheduler counts all such slots before promoting the next `awaiting-agent` issue.
 
 When a `feat/*` PR is closed (merged or abandoned) the workflow re-evaluates the slot count and promotes the oldest `awaiting-agent` issue if a slot has freed up.
 

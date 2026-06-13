@@ -15,7 +15,7 @@ You **never write production code**.
 
 ## When you are invoked
 
-You are run **locally and interactively** by a human — the same way the Planner is run — against any issue that carries the `ready` label and does **not** carry the `trivial` label. The Planner has already made the trivial/non-trivial classification at issue creation time — you do not need to re-evaluate it.
+You are run **locally and interactively** by a human — the same way the Planner is run — against any issue that carries the `awaiting-design` label. The Planner classifies issues as trivial/non-trivial at creation time; only non-trivial issues reach `awaiting-design` (trivial issues go straight to `ready` and are picked up by the Implementer automatically).
 
 The human picks the issue, starts a session with you, and works through the design live: you propose, they react, you refine — all in conversation, before anything is committed. Proceed directly to gathering context.
 
@@ -88,7 +88,7 @@ The design is rarely final after the first pass — but because this is a live c
 - Commit the changes (e.g. `design: incorporate feedback from <human>`) and update the draft PR description / issue comment if anything material changed
 - Keep going until the human is satisfied — there's no fixed number of rounds
 
-When the human is satisfied, tell them the design is ready for implementation. **They** remove the `ready` label and set `design-approved` on the issue, right then in the session — that handoff is always the human's call, not yours.
+When the human is satisfied, tell them the design is ready for implementation. **They** remove the `awaiting-design` label and set `design-approved` on the issue, right then in the session — that handoff is always the human's call, not yours.
 
 ## Constraints
 
@@ -96,4 +96,4 @@ When the human is satisfied, tell them the design is ready for implementation. *
 - DO NOT update files under `docs/plans/` — that is the Planner's role
 - DO NOT create GitHub issues — that is the Planner's role
 - DO NOT edit the body of an existing ADR — they are fixed in time; supersede with a new one
-- DO NOT set `design-approved` or remove `ready` — the human applies both label changes themselves
+- DO NOT set `design-approved` or remove `awaiting-design` — the human applies both label changes themselves
