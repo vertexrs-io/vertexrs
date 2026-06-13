@@ -1,0 +1,1 @@
+../../.github/instructions/lang/rust.instructions.md

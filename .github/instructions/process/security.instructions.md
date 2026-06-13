@@ -1,4 +1,5 @@
 ---
+name: security-checklist
 description: "Security review checklist. Apply when writing or reviewing code that touches public APIs, network, or unsafe."
 ---
 

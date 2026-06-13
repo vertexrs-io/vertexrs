@@ -1,4 +1,5 @@
 ---
+name: planning-rules
 description: "How to decompose a plan phase into GitHub issues. Apply when planning work or creating issues."
 ---
 

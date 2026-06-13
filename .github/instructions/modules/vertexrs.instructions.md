@@ -1,5 +1,7 @@
 ---
 applyTo: "vertexrs/src/**/*.rs"
+paths:
+  - "vertexrs/src/**/*.rs"
 ---
 
 # vertexrs Crate — Doc Example Rules

@@ -1,4 +1,5 @@
 ---
+name: pr-review-checklist
 description: "PR review checklist. Apply when reviewing a pull request."
 ---
 
