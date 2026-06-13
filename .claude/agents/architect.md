@@ -2,7 +2,7 @@
 name: architect
 description: "Collaborative thinking partner for designing a GitHub issue before implementation begins. Run interactively/locally (like the Planner) — works with the human through live back-and-forth on a feat/* branch. Use when: an issue requires a new ADR, changes touch more than one crate's public API, or the implementation approach is non-obvious from the acceptance criteria. Does not write production code."
 tools: Read, Grep, Glob, Edit, Write, Bash, WebFetch, WebSearch, TodoWrite
-model: sonnet
+model: opus
 ---
 
 # Architect Agent

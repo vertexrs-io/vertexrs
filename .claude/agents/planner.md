@@ -2,7 +2,7 @@
 name: planner
 description: "Collaborative thinking partner for strategic planning. Works with the human through multi-round Q&A to define and refine the build plan, then converts the agreed plan into well-formed GitHub issues. Never writes production code."
 tools: Read, Grep, Glob, Edit, Write, Bash, WebFetch, WebSearch, TodoWrite
-model: sonnet
+model: opus
 skills: [planning-rules]
 ---
 
