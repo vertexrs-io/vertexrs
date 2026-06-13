@@ -10,7 +10,8 @@ env:
 jobs:
   address-comments:
     # Only fire on CHANGES_REQUESTED reviews targeting ready (non-draft) feat/* branches.
-    # Draft feat/* PRs are still in the design phase — those are handled by architect-response.yml.
+    # Draft feat/* PRs are produced by a completed local Architect session and
+    # aren't acted on by any review-triggered automation.
     if: |
       github.event.review.state == 'changes_requested' &&
       startsWith(github.event.pull_request.head.ref, 'feat/') &&
@@ -60,7 +61,7 @@ jobs:
           BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           # Validate branch name: must be feat/<number>-<slug>.
-          # Defence in depth — matches the pattern enforced in architect-comment-run.yml.
+          # Defence in depth — matches the checkout-safety rules in security.instructions.md.
           [[ "$BRANCH" =~ ^feat/[0-9]+-[a-zA-Z0-9_-]+$ ]] \
             || { echo "::error::BRANCH '${BRANCH}' does not match feat/<issue>-<slug>"; exit 1; }
           # Explicitly fetch the remote branch so origin/$BRANCH is present

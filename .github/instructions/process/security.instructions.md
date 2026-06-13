@@ -45,7 +45,7 @@ These rules apply to any file under `.github/workflows/`. The Security agent mus
 
 - `pull_request` from forks runs with read-only `GITHUB_TOKEN` and **no secrets** — generally safe; not a sink for sensitive data
 - `pull_request_target`, `issue_comment`, `pull_request_review`, `workflow_run` run with **write tokens and secrets** in the base-repo context — every input must be treated as untrusted until validated
-- Never introduce `pull_request_target` without the two-workflow + artifact + API-refetch pattern documented in `architect-comment-receive.yml` / `architect-comment-run.yml`
+- Never introduce `pull_request_target` or a privileged `issue_comment`/`pull_request_review` workflow without the two-workflow pattern: an unprivileged triage workflow (read-only permissions, no secrets beyond `GITHUB_TOKEN`, no checkout) validates the triggering actor's `author_association` and the relevant label/state, then persists only integer IDs (issue/comment/PR numbers) as an artifact; a second workflow, triggered by `workflow_run` on the first's completion, runs in the trusted/privileged context, re-fetches branch name, head SHA, commenter login, and comment/review body from the GitHub API using those IDs, re-validates trust on the specific item, and only then checks out code or invokes an agent. Never trust artifact-carried strings (branch names, bodies, logins) directly — only integer lookup keys may cross the artifact boundary
 
 ### Trusting the caller
 

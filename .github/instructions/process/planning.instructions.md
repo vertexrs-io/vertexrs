@@ -63,13 +63,12 @@ Every issue moves through this sequence; each transition is gated:
 |---|---|---|
 | `queued` | Planner (at creation) | Issue exists but no agent should act yet |
 | `awaiting-agent` | **Human** (manual) | Human has approved the issue for agent execution |
-| `ready` | Queue bot (`implementer-queue.yml`) | A slot is free; the Architect (non-trivial) or Implementer (trivial) should pick it up |
-| `awaiting-design-approval` | Architect (after posting design) | Draft PR is open; awaiting human design sign-off |
-| `design-approved` | **Human** (manual) | Implementer may now build the design |
+| `ready` | Queue bot (`implementer-queue.yml`) | A slot is free. Trivial issues trigger the Implementer via CI; non-trivial issues need a human to run the Architect locally before setting `design-approved` |
+| `design-approved` | **Human** (manual) | Design complete (for non-trivial issues, produced via a local Architect session); Implementer may now build the design |
 
 Notes:
 - `awaiting-agent` and `design-approved` are the only transitions that require a human; agents must never apply these
-- `ready` is bot-applied so the Architect/Implementer workflows can distinguish bot-driven promotion from manual labelling
+- `ready` is bot-applied so the Implementer workflow can distinguish bot-driven promotion (trivial path) from manual labelling. For non-trivial issues, `ready` simply signals that a human should run the Architect locally
 - The label sequence is the source of truth for which agent runs next — workflows gate on both the label and the `sender.type` / `sender.login` of the change
 
 ## Trivial vs non-trivial classification
@@ -82,9 +81,9 @@ The Planner classifies issues at creation time. Apply the `trivial` label (along
 - The implementation approach is unambiguous from the acceptance criteria alone
 - Estimated change is ≤ 50 LOC
 
-If any criterion is not met, do not apply `trivial`. Non-trivial issues automatically trigger the Architect agent (via the `ready` label); the Implementer must not start until the Architect has posted a design and the human has set `design-approved` on the issue.
+If any criterion is not met, do not apply `trivial`. Non-trivial issues require a human to run a local Architect session (against the `ready` issue, on the `feat/<issue-number>-<slug>` branch) before setting `design-approved`; the Implementer must not start until then.
 
-When in doubt, omit `trivial` — the Architect stage has low cost and high value.
+When in doubt, omit `trivial` — the Architect stage has low cost and high value, even run locally.
 
 ## Plan maintenance
 
