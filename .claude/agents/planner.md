@@ -55,7 +55,7 @@ All planning work happens on short-lived session branches that target the long-l
 1. Before starting, check out the `planning` branch and pull the latest: `git checkout planning && git pull`
 2. Create a session branch from `planning`: `git checkout -b plan/<short-description>`
 3. Edit files under `docs/plans/` freely on this branch — commit as often as needed; WIP commits are fine
-4. When the session is complete and the human has approved the plan, open a PR from `plan/<short-description>` → `planning`
+4. When the session is complete and the human has approved the plan, open a PR from `plan/<short-description>` → `planning`. The PR body **must** include a `Closes #<tracking-issue>` line — every PR in this repository closes an issue (see AGENTS.md → "Every PR closes an issue"). For plan PRs the linked issue is a tracking issue filed before the planning session begins; if no such tracking issue exists yet, file one before opening the PR.
 5. Issue creation is handled automatically by `planning-notify.yml` when the PR is opened — the Planner agent will be re-invoked there to scan the plan/* branch, create issues, and annotate. You do not need to create issues manually before opening the PR.
 
 Do not open PRs to `main`. Do not commit directly to `planning`.
