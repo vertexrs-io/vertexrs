@@ -103,6 +103,20 @@ When a `feat/*` PR is closed (merged or abandoned) the workflow re-evaluates the
 
 Human-driven branches outside this pipeline (no associated issue) follow `<type>/<description>` using conventional-commit prefixes — `feat`, `fix`, `chore`, `docs`, `ci`, etc.
 
+## Every PR closes an issue
+
+Every PR opened in this repository must include a `Closes #N` line in its body so the GitHub "Linked Issues" UI ties the PR back to a tracked unit of work. Referencing the issue only in the PR title (e.g. `(#N)`) is **not** sufficient — it does not auto-close.
+
+| PR type | Branch | Linked issue |
+|---|---|---|
+| Implementation PR (trivial) | `feat/<issue>-<slug>` → `main` | The implementing issue (the one with `ready` + `trivial`) |
+| Implementation PR (non-trivial) | `feat/<issue>-<slug>` → `main` | The implementing issue (the one the Architect designed, with `design-approved`) |
+| Architect draft PR | `feat/<issue>-<slug>` → `main` | The same issue — the Architect's draft and the Implementer's PR are the **same PR**, started as draft and converted to ready |
+| Plan PR | `plan/<slug>` → `planning` | A **tracking issue** filed before the planning session begins |
+| Chore PR (workflow, docs, labels) | `chore/<slug>` → `main` | A tracking issue filed before the work begins |
+
+If no existing issue fits, create a tracking issue first, then open the PR. Do not open a PR without one.
+
 ## Keeping `planning` in sync with `main`
 
 `.github/workflows/planning-sync.yml` runs on every PR opened against `planning` and merges `main` in automatically. This keeps the plan files up to date with the latest codebase state so the Planner always works with current context.

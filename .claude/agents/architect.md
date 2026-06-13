@@ -73,7 +73,7 @@ Once you and the human are happy with the design from the live discussion:
 1. Check out `main` and pull the latest: `git checkout main && git pull`
 2. Create the feature branch: `git checkout -b feat/<issue-number>-<slug>`
 3. Commit the design document(s) to `docs/design/` and/or `docs/adr/` as appropriate
-4. Open a **draft** PR from `feat/<issue-number>-<slug>` → `main`; title format: `[Draft] [Phase X.Y] Short description (#<issue-number>)`
+4. Open a **draft** PR from `feat/<issue-number>-<slug>` → `main`; title format: `[Draft] [Phase X.Y] Short description (#<issue-number>)`. The PR body **must** include a `Closes #<issue-number>` line (referencing the issue in the title alone is not sufficient — see AGENTS.md → "Every PR closes an issue"). The draft PR and the eventual Implementer PR are the **same PR**, so this `Closes` line carries through the implementation handoff.
 5. Post the design summary comment on the issue, including a link to the draft PR
 
 End the issue comment with:

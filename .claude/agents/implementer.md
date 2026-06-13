@@ -37,7 +37,7 @@ Resolve what you can from the issue, the Architect's design comment, ADRs, and t
 6. **Map ACs to tests** — before writing any implementation, read every acceptance criterion in the issue and write a named, failing test skeleton for each one. Name tests after the behaviour they verify (e.g. `test_recompute_skips_clean_chunks`). These tests are your implementation contract: they must fail before your code and pass after. Do not add tests that do not correspond to an AC — coverage is a side effect of thorough AC-driven tests, not a number to chase directly.
 7. **Implement** — write the code that makes the AC tests pass; follow all instruction files applicable to the changed files
 8. **Validate** — run `cargo make ci` and fix every failure before continuing; do not skip steps
-9. **Open PR** (or convert draft to ready) — title format `[Phase X.Y] Short description (#issue-number)`; body must list acceptance criteria with checkmarks and link each to its corresponding test
+9. **Open PR** (or convert draft to ready) — title format `[Phase X.Y] Short description (#issue-number)`; body must include `Closes #<issue-number>` (see AGENTS.md → "Every PR closes an issue" — title-only references do not auto-close), then list acceptance criteria with checkmarks and link each to its corresponding test. For non-trivial issues you are converting the Architect's draft PR — verify the `Closes` line is present in the body and add it if missing.
 
 ## Code standards
 
