@@ -16,7 +16,8 @@ env:
 jobs:
   implement:
     # Fire on: workflow_dispatch, 'design-approved' label (non-trivial path),
-    # or 'ready' label (trivial check happens inside).
+    # or 'ready' label (trivial path — the scheduler only ever applies 'ready' to
+    # trivial issues; non-trivial issues are promoted to 'awaiting-design' instead).
     # Guards: 'design-approved' must be set by a human; 'ready' must be set by the
     # scheduler bot — prevents agent-applied labels from creating a runaway loop.
     if: |
@@ -69,8 +70,10 @@ jobs:
               ;;
           esac
 
-      # For 'ready' label: only proceed if the issue also has 'trivial'.
-      # Non-trivial issues go through the Architect first and arrive here via 'design-approved'.
+      # For 'ready' label: only proceed if the issue also has 'trivial'. This is a
+      # belt-and-braces check — the scheduler never applies 'ready' to non-trivial
+      # issues (they get 'awaiting-design' instead), but this guards against a
+      # mis-labelled issue slipping through.
       - name: Check trigger condition
         id: check
         env:
@@ -97,7 +100,7 @@ jobs:
           if [ "$HAS_TRIVIAL" = "true" ]; then
             echo "proceed=true" >> "$GITHUB_OUTPUT"
           else
-            echo "Issue is non-trivial — Architect must design it first."
+            echo "Issue is non-trivial — expected 'awaiting-design' (human runs Architect locally), not 'ready'."
             echo "proceed=false" >> "$GITHUB_OUTPUT"
           fi
 
