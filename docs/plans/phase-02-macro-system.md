@@ -283,33 +283,38 @@ Implemented as part of 2.2.0 above. All planned tests pass. See 2.2.0 implementa
 - [x] `node!(x = expr, pure = false)` → impure node, always fully dirty <!-- #14 -->
 - [x] Default: pure = true, failure = soft <!-- #14 -->
 
-### 2.7 Kernel Fusion Pass
+### 2.7 Kernel Fusion Pass <!-- pending -->
 
 - [ ] Walk DAG and identify fusable chains (pointwise + preserves length + pure)
 - [ ] Collapse chains into single fused kernel
 - [ ] Emit fused kernel — all ops in one loop, data stays in registers
 - [ ] Benchmark: fused vs unfused on a 5-op chain
+- [ ] Save initial benchmark baseline: `cargo bench --save-baseline initial`
 
-### 2.8 Struct Node Projection
+### 2.8 Struct Node Projection <!-- pending -->
 
 - [ ] `#[derive(NodeOutput)]` macro for struct outputs
 - [ ] Downstream field access (`bs.delta`) generates free projection node
 - [ ] No recomputation — projection is a field access on cached struct column
 
-### 2.9 Stateful Nodes
+### 2.9 Stateful Nodes <!-- pending -->
 
 - [ ] `#[stateful]` annotation — state lives alongside node, persists between updates
 - [ ] `state.get::<T>()` / `state.set(value)` API inside node body
 - [ ] `#[recompute_when(dep)]` — node only dirty when named dependency changes
 - [ ] Test: EMA node accumulates correctly across 100 update cycles
 
-### 2.10 Optimizing
+### 2.10 Optimizing <!-- pending -->
 
-- [ ] Benchmark graph against Polars. Identify bottlenecks and optimise critical paths (e.g. chunk allocation, dirty tracking, kernel execution). Performance should be a core focus from day one, with benchmarks driving design decisions. Results should be faster or comparable to Polars on equivalent pipelines.
+- [ ] Benchmark-driven optimisation pass: full recompute within 2× of Polars on a 3-node pipeline at 1M rows across f32/f64/i32/i64/u32/u64
+- [ ] Incremental 1% update ≥ 10× faster than Polars full recompute at 1M rows
+- [ ] Identify and fix critical-path bottlenecks (chunk allocation, dirty tracking, kernel execution)
 
 ---
 
 ### 2.11 Polars Feature Parity
+
+> Dtype-coverage decision: before starting any 2.11 sub-issue, the dtype-coverage matrix audit (issue R <!-- pending -->) must define the accepted dtype set for each sub-issue.
 
 **Goal:** Implement all major Polars DataFrame operations as first-class VertexRS operations and verify correctness and throughput against Polars.  
 **Success metric:** Every item below has (a) a correctness test that compares VertexRS output to the equivalent Polars output within tolerance (`abs(vtx − polars) < 1e-6` for `f32`/`f64`; exact equality for integer types; `f16` widened to `f32` before comparison), and (b) a Criterion benchmark comparing throughput; and where applicable a third benchmark demonstrating the incremental recompute advantage over Polars full-recompute.
@@ -322,7 +327,16 @@ Implemented as part of 2.2.0 above. All planned tests pass. See 2.2.0 implementa
 
 ---
 
-#### 2.11.1 Joins
+#### 2.11.0 Nullable AnyNode <!-- pending -->
+
+- [ ] Add `Option<arrow_buffer::BooleanBuffer>` validity bitmap to `AnyNode` variants
+- [ ] Null propagation: null-in → null-out for all downstream nodes
+- [ ] `AnyNode::is_nullable() -> bool` and `AnyNode::validity() -> Option<&BooleanBuffer>` accessors
+- [ ] Required by: outer joins (2.11.1), missing data (2.11.6)
+
+---
+
+#### 2.11.1 Joins <!-- pending D1 (basic) / pending D2 (asof+non-equi) -->
 
 VertexRS has no join implementation. Joins require a gather index (`u32` column), null/validity support for outer joins, and dirty propagation through index remapping.
 
@@ -360,7 +374,7 @@ VertexRS has no join implementation. Joins require a gather index (`u32` column)
 
 ---
 
-#### 2.11.2 Group-By Aggregations
+#### 2.11.2 Group-By Aggregations <!-- pending -->
 
 **Planned API:** `Frame::group_by(keys: &[&str]).agg(exprs: &[AggExpr]) -> Frame`
 
@@ -393,7 +407,7 @@ VertexRS has no join implementation. Joins require a gather index (`u32` column)
 
 ---
 
-#### 2.11.3 Window Functions
+#### 2.11.3 Window Functions <!-- pending -->
 
 Window functions compute an expression per group and map the result back to the original row positions (unlike group-by, which reduces to one row per group).
 
@@ -423,7 +437,7 @@ Window functions compute an expression per group and map the result back to the 
 
 ---
 
-#### 2.11.4 Basic Scalar Operations
+#### 2.11.4 Basic Scalar Operations <!-- pending -->
 
 Most of these are already partially implemented via `node!` col/row modes. This item audits completeness and adds any missing operations.
 
@@ -463,7 +477,7 @@ Most of these are already partially implemented via `node!` col/row modes. This 
 
 ---
 
-#### 2.11.5 Reshaping and Concatenation
+#### 2.11.5 Reshaping and Concatenation <!-- pending -->
 
 **Concatenation:**
 - [ ] `Frame::vstack(other: &Frame) -> Frame` — vertical stack (append rows); column names and types must match (panic on mismatch)
@@ -487,7 +501,7 @@ Most of these are already partially implemented via `node!` col/row modes. This 
 
 ---
 
-#### 2.11.6 Missing Data
+#### 2.11.6 Missing Data <!-- pending -->
 
 **Operations:**
 - [ ] `fill_null_literal(col, value: T) -> Node<T>` — replace nulls with a constant literal
@@ -509,7 +523,7 @@ Most of these are already partially implemented via `node!` col/row modes. This 
 
 ---
 
-#### 2.11.7 Type Casting
+#### 2.11.7 Type Casting <!-- pending -->
 
 - [ ] `cast::<T>(col) -> Node<T>` — numeric type coercion; supported casts mirror Arrow safe casts: all numeric → all numeric widening/narrowing, integer ↔ float, bool ↔ integer
 - [ ] Overflow behaviour: narrowing casts that overflow saturate (not UB); document this as the defined behaviour
@@ -523,7 +537,7 @@ Most of these are already partially implemented via `node!` col/row modes. This 
 
 ---
 
-#### 2.11.8 String Operations
+#### 2.11.8 String Operations <!-- pending -->
 
 String columns are required for joins on string keys, group-by on string keys, and `value_counts` on categorical data.
 
@@ -544,7 +558,7 @@ String columns are required for joins on string keys, group-by on string keys, a
 
 ---
 
-#### 2.11.9 Time-Series Operations
+#### 2.11.9 Time-Series Operations <!-- pending -->
 
 - [ ] Add `AnyNode::Timestamp(ScalarBuffer<i64>)` — microseconds since Unix epoch; mirrors Arrow `TimestampMicrosecond`
 - [ ] `rolling_mean_time(col, window_duration: Duration)` — rolling mean over a fixed time window (requires sorted timestamp column)
@@ -587,7 +601,7 @@ The Polars dev-dependency must be gated behind the `bench-polars` feature flag i
 
 ---
 
-### 2.12.1 Type-Driven Dispatch
+### 2.12.1 Type-Driven Dispatch <!-- pending -->
 
 **Design:** Whether a node uses the columnar/SIMD path or the task/rayon path is determined entirely by its output type. No user annotation is needed for default dispatch.
 
@@ -614,7 +628,7 @@ The Polars dev-dependency must be gated behind the `bench-polars` feature flag i
 - [ ] Compile-time error if a task node output type does not implement `Send + Sync`
 - [ ] Unit tests: task node creation, dirty propagation through task → columnar edge and columnar → task edge, `Vec<T>` collection node round-trip
 
-### 2.12.2 Process Graph User API
+### 2.12.2 Process Graph User API <!-- pending -->
 
 **Example — instrument pricing pipeline mixing struct and columnar nodes:**
 
@@ -651,7 +665,7 @@ let pipeline = pipeline! {
   - Mixed graph: task node depending on a columnar node; columnar node depending on a task node
   - Struct projection node: verify it produces the same values as accessing the field manually
 
-### 2.12.3 Incremental Correctness for Task Nodes
+### 2.12.3 Incremental Correctness for Task Nodes <!-- pending (grouped with 2.12.2 in issue O1) -->
 
 The primary value of task nodes is that only the items whose inputs changed are recomputed. This section specifies the correctness requirements.
 
@@ -660,7 +674,7 @@ The primary value of task nodes is that only the items whose inputs changed are 
 - [ ] Task → columnar propagation: dirty items in a task node mark the corresponding chunks dirty in downstream columnar nodes; verify via dirty bitmap inspection after partial update
 - [ ] Columnar → task propagation: a dirty chunk in a columnar source marks all items within that chunk's row range dirty in downstream task nodes
 
-### 2.12.4 Benchmarks
+### 2.12.4 Benchmarks <!-- pending -->
 
 Unlike the columnar benchmarks (which compare to Polars), process graph benchmarks compare to hand-written Rust code that always recomputes everything — the baseline that VertexRS replaces.
 
@@ -669,4 +683,32 @@ Unlike the columnar benchmarks (which compare to Polars), process graph benchmar
 - [ ] `bench_greeks_10pct_incremental` — update 10% of spot prices; same comparison
 - [ ] `bench_approval_flow` — a 5-step linear process graph (validate → enrich → score → approve → notify) over 10,000 items; incremental update of 1% of inputs
 - [ ] All benchmarks include a `#[test]` correctness assertion (output matches direct calculation to `1e-6` for f64 fields)
+
+---
+
+## 2.11 Auxiliary Tasks
+
+### 2.11.R Dtype-Coverage Matrix Audit <!-- pending -->
+
+- [ ] For each 2.11 sub-issue (D1, D2, E, F, G, H, I, J, K, L), write a dtype-coverage decision: either extend the issue to cover all AnyNode dtypes (u8/u16/u32/u64, i8/i16/i32/i64, f16/f32/f64) or document the accepted narrower dtype set with rationale
+- [ ] Deliverable is written decisions only — no implementation code
+- [ ] Decisions committed to `docs/plans/phase-02-macro-system.md` before implementation of any 2.11 sub-issue begins
+
+---
+
+## Phase 2 — Example Pipelines
+
+### docs(phase-2): Columnar Pricing Demo <!-- pending -->
+
+- [ ] 10-node columnar pipeline demo in ~15 lines of `pipeline!` macro code
+- [ ] Demonstrates source nodes, derived nodes, sub-pipelines, and `output!`
+- [ ] Lives in `docs/examples/` or `vertexrs/examples/`; must compile and run cleanly
+- [ ] Blocked by: 2.11.4 Basic Scalar Operations (G)
+
+### docs(phase-2): Greeks/Options Demo + ETL Demo <!-- pending -->
+
+- [ ] Greeks/options process graph demo: mixing struct-output nodes and columnar nodes via `pipeline!`
+- [ ] ETL demo: group-by, time-series rolling, and reshape in a single pipeline
+- [ ] Both demos live in `docs/examples/` or `vertexrs/examples/`; must compile and run cleanly
+- [ ] Blocked by: 2.12.2 Process Graph API (O1), 2.11.2 Group-By (E), 2.11.9 Time-Series (L)
 
