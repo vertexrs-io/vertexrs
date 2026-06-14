@@ -109,12 +109,23 @@ jobs:
       # token; using GITHUB_TOKEN here would suppress the downstream CI run
       # (GitHub blocks chain-triggers from GITHUB_TOKEN), leaving ci.yml and
       # bench.yml unfired on the implementer's PR and its follow-up pushes.
+      #
+      # Permissions are narrowed to the minimum the agent actually needs:
+      #   contents:write       — git push, branch creation
+      #   pull-requests:write  — gh pr create / gh pr ready
+      #   issues:read          — read the issue body and pre-existing labels
+      # In particular issues:write is withheld so the agent cannot mutate
+      # in-flight labels (ready / awaiting-agent / awaiting-design /
+      # design-approved) and re-trigger itself by cycling them.
       - uses: actions/create-github-app-token@v1
         id: app-token
         if: steps.check.outputs.proceed == 'true'
         with:
           app-id: ${{ secrets.SCHEDULER_APP_ID }}
           private-key: ${{ secrets.SCHEDULER_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: read
 
       - uses: actions/checkout@v4
         if: steps.check.outputs.proceed == 'true'
@@ -187,3 +198,33 @@ jobs:
             --append-system-prompt "$(cat .claude/agents/implementer.md)" \
             --model "$CLAUDE_MODEL" \
             --allowedTools "Read,Grep,Glob,LSP,Edit,Write,WebFetch,WebSearch,TodoWrite,Bash(git:*),Bash(gh:*),Bash(cargo:*)"
+
+      # Safety net: confirm the agent actually opened a non-draft PR for this
+      # issue. Without this the workflow happily reports `success` even when
+      # `git push` failed and nothing shipped — see issue #62 for the case
+      # where this masked a 403 on push and the agent then self-cycled labels.
+      - name: Verify a PR was opened for this issue
+        if: steps.check.outputs.proceed == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          ISSUE_NUMBER: ${{ steps.issue.outputs.number }}
+        run: |
+          PR_INFO=$(gh pr list \
+            --repo "$GITHUB_REPOSITORY" \
+            --state open \
+            --base main \
+            --json url,isDraft,headRefName \
+            --jq "[.[] | select(.headRefName | startswith(\"feat/${ISSUE_NUMBER}-\"))][0] // empty")
+
+          if [ -z "$PR_INFO" ]; then
+            echo "::error::Implementer finished but no open PR found for issue #${ISSUE_NUMBER} (expected head feat/${ISSUE_NUMBER}-*). The agent likely failed to push — see job log."
+            exit 1
+          fi
+
+          IS_DRAFT=$(echo "$PR_INFO" | jq -r '.isDraft')
+          if [ "$IS_DRAFT" = "true" ]; then
+            echo "::error::PR for issue #${ISSUE_NUMBER} is still a draft. The Implementer must convert the Architect's draft to ready (non-trivial) or open a ready PR (trivial)."
+            exit 1
+          fi
+
+          echo "PR verified: $(echo "$PR_INFO" | jq -r '.url')"
