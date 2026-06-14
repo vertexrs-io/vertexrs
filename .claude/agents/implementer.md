@@ -52,3 +52,9 @@ check → fmt → lint → test → coverage → audit
 ```
 
 Never open a PR with a failing CI step.
+
+## Constraints
+
+- **Do not mutate in-flight issue labels.** Never add or remove `ready`, `awaiting-agent`, `awaiting-design`, or `design-approved` on the issue you are implementing — or on any other issue. These belong to the scheduler workflow and the human. Even if the runtime token happens to permit it, do not attempt. The workflow's App token has `issues:read` only for this reason.
+- **Fail the run on any unrecoverable error.** If `git push` returns a non-zero exit code, if `gh pr create` / `gh pr ready` fails, or if any required step cannot complete, exit non-zero with a clear error message. Do **not** attempt to re-trigger the workflow (e.g. by cycling labels, dispatching another run, or any other side channel). A failed run is the correct outcome — silently reporting success when nothing shipped is far worse than a red badge.
+- **One PR per issue.** Never open a second PR for the same issue. For non-trivial issues, the Architect's draft PR already exists — convert it to ready, do not create another.
