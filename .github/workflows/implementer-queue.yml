@@ -51,13 +51,20 @@ jobs:
           LIMIT="${CONCURRENCY_LIMIT:-1}"
 
           # A slot is in use whenever an open issue holds any in-flight label.
-          # Labels are mutually exclusive: agents remove the old label before adding the next.
-          # For non-trivial issues, 'ready' covers the whole local Architect
-          # session — there is no separate awaiting-design-approval state.
+          # Labels are mutually exclusive: agents/humans remove the old label before adding the next.
+          #   ready              — trivial: Implementer fires automatically
+          #   awaiting-design    — non-trivial: human must run the Architect locally
+          #   design-approved    — non-trivial: Architect done, Implementer fires
           READY=$(gh issue list \
             --repo "$GITHUB_REPOSITORY" \
             --state open \
             --label 'ready' \
+            --json number \
+            --jq 'length')
+          AWAITING_DESIGN=$(gh issue list \
+            --repo "$GITHUB_REPOSITORY" \
+            --state open \
+            --label 'awaiting-design' \
             --json number \
             --jq 'length')
           APPROVED=$(gh issue list \
@@ -75,8 +82,8 @@ jobs:
             --json number \
             --jq 'length')
 
-          USED=$(( READY + APPROVED + OPEN_PRS ))
-          echo "Slots in use: $USED / $LIMIT  (ready=$READY, design-approved=$APPROVED, open_prs=$OPEN_PRS)"
+          USED=$(( READY + AWAITING_DESIGN + APPROVED + OPEN_PRS ))
+          echo "Slots in use: $USED / $LIMIT  (ready=$READY, awaiting-design=$AWAITING_DESIGN, design-approved=$APPROVED, open_prs=$OPEN_PRS)"
           echo "used=$USED" >> "$GITHUB_OUTPUT"
           echo "limit=$LIMIT" >> "$GITHUB_OUTPUT"
 
@@ -90,16 +97,28 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --state open \
             --label 'awaiting-agent' \
-            --json number \
-            --jq 'sort_by(.number) | .[0].number // empty')
+            --json number,labels \
+            --jq 'sort_by(.number) | .[0] // empty')
 
           if [ -z "$ISSUE" ]; then
             echo "No awaiting-agent issues to promote."
             exit 0
           fi
 
-          echo "Promoting issue #$ISSUE: awaiting-agent → ready"
-          gh issue edit "$ISSUE" \
+          NUMBER=$(jq -r '.number' <<<"$ISSUE")
+          IS_TRIVIAL=$(jq -r '[.labels[].name] | any(. == "trivial")' <<<"$ISSUE")
+
+          # Trivial → 'ready' fires the Implementer directly.
+          # Non-trivial → 'awaiting-design' signals a human to run the Architect locally;
+          # the Implementer fires later, on 'design-approved'.
+          if [ "$IS_TRIVIAL" = "true" ]; then
+            NEXT_LABEL='ready'
+          else
+            NEXT_LABEL='awaiting-design'
+          fi
+
+          echo "Promoting issue #$NUMBER: awaiting-agent → $NEXT_LABEL"
+          gh issue edit "$NUMBER" \
             --repo "$GITHUB_REPOSITORY" \
             --remove-label 'awaiting-agent' \
-            --add-label 'ready'
+            --add-label "$NEXT_LABEL"
