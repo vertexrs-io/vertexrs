@@ -314,7 +314,7 @@ Implemented as part of 2.2.0 above. All planned tests pass. See 2.2.0 implementa
 
 ### 2.11 Polars Feature Parity
 
-> Dtype-coverage decision: before starting any 2.11 sub-issue, the dtype-coverage matrix audit (issue R <!-- #40 -->) must define the accepted dtype set for each sub-issue.
+> Dtype-coverage decision: before starting any 2.11 sub-issue, the dtype-coverage matrix audit (issue R <!-- #40 -->) must define the accepted dtype set for each sub-issue. See [`docs/plans/phase-02-dtype-coverage.md`](phase-02-dtype-coverage.md).
 
 **Goal:** Implement all major Polars DataFrame operations as first-class VertexRS operations and verify correctness and throughput against Polars.  
 **Success metric:** Every item below has (a) a correctness test that compares VertexRS output to the equivalent Polars output within tolerance (`abs(vtx − polars) < 1e-6` for `f32`/`f64`; exact equality for integer types; `f16` widened to `f32` before comparison), and (b) a Criterion benchmark comparing throughput; and where applicable a third benchmark demonstrating the incremental recompute advantage over Polars full-recompute.
@@ -690,9 +690,9 @@ Unlike the columnar benchmarks (which compare to Polars), process graph benchmar
 
 ### 2.11.R Dtype-Coverage Matrix Audit <!-- #40 -->
 
-- [ ] For each 2.11 sub-issue (D1, D2, E, F, G, H, I, J, K, L), write a dtype-coverage decision: either extend the issue to cover all AnyNode dtypes (u8/u16/u32/u64, i8/i16/i32/i64, f16/f32/f64) or document the accepted narrower dtype set with rationale
-- [ ] Deliverable is written decisions only — no implementation code
-- [ ] Decisions committed to `docs/plans/phase-02-macro-system.md` before implementation of any 2.11 sub-issue begins
+- [x] For each 2.11 sub-issue (D1, D2, E, F, G, H, I, J, K, L), write a dtype-coverage decision: either extend the issue to cover all AnyNode dtypes (u8/u16/u32/u64, i8/i16/i32/i64, f16/f32/f64) or document the accepted narrower dtype set with rationale
+- [x] Deliverable is written decisions only — no implementation code
+- [x] Decisions committed to [`docs/plans/phase-02-dtype-coverage.md`](phase-02-dtype-coverage.md) before implementation of any 2.11 sub-issue begins
 
 ---
 
