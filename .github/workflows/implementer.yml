@@ -104,6 +104,18 @@ jobs:
             echo "proceed=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # Clear any failure label from a previous run so the issue state is clean
+      # before we start. Silently succeeds if the label isn't present.
+      - name: Clear previous failure label
+        if: steps.check.outputs.proceed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ steps.issue.outputs.number }}
+        run: |
+          gh issue edit "$ISSUE_NUMBER" \
+            --repo "$GITHUB_REPOSITORY" \
+            --remove-label "implementation-failed" 2>/dev/null || true
+
       # Mint a short-lived installation token for the vertexrs-bot-scheduler
       # GitHub App. The agent pushes commits and opens/updates the PR with this
       # token; using GITHUB_TOKEN here would suppress the downstream CI run
@@ -191,6 +203,8 @@ jobs:
               NOT create a new branch from main. For trivial issues, create a new branch from \
               main: feat/<issue-number>-<slug>. Implement the acceptance criteria, \
               run cargo make ci and fix every failure. \
+              Immediately after cargo make ci passes push all commits to the remote branch \
+              (git push origin <branch-name>) before touching the PR — if the push fails exit non-zero. \
               For trivial issues, open a new PR from the branch to main. \
               For non-trivial issues, convert the existing draft PR to ready for review — \
               do NOT open a second PR to main. \
@@ -228,3 +242,20 @@ jobs:
           fi
 
           echo "PR verified: $(echo "$PR_INFO" | jq -r '.url')"
+
+      # Apply 'implementation-failed' to the issue whenever any step above fails,
+      # so it's visible from the issue list without digging through Actions logs.
+      # Creates the label on first use; idempotent on subsequent failures.
+      - name: Label issue on failure
+        if: failure() && steps.check.outputs.proceed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ steps.issue.outputs.number }}
+        run: |
+          gh label create "implementation-failed" \
+            --repo "$GITHUB_REPOSITORY" \
+            --color "d93f0b" \
+            --description "Implementer run failed — re-trigger to retry" 2>/dev/null || true
+          gh issue edit "$ISSUE_NUMBER" \
+            --repo "$GITHUB_REPOSITORY" \
+            --add-label "implementation-failed"
