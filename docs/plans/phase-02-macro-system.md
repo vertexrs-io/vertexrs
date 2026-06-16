@@ -283,12 +283,12 @@ Implemented as part of 2.2.0 above. All planned tests pass. See 2.2.0 implementa
 - [x] `node!(x = expr, pure = false)` → impure node, always fully dirty <!-- #14 -->
 - [x] Default: pure = true, failure = soft <!-- #14 -->
 
-### 2.7 Kernel Fusion Pass
+### 2.7 Kernel Fusion Pass <!-- #31 -->
 
-- [ ] Walk DAG and identify fusable chains (pointwise + preserves length + pure)
-- [ ] Collapse chains into single fused kernel
-- [ ] Emit fused kernel — all ops in one loop, data stays in registers
-- [ ] Benchmark: fused vs unfused on a 5-op chain
+- [x] Walk DAG and identify fusable chains (pointwise + preserves length + pure)
+- [x] Collapse chains into single fused kernel
+- [x] Emit fused kernel — all ops in one loop, data stays in registers
+- [x] Benchmark: fused vs unfused on a 5-op chain
 
 ### 2.8 Struct Node Projection
 

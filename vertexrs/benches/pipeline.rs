@@ -338,15 +338,121 @@ mod correctness {
     }
 }
 
+// ── Fusion vs unfused benchmark ───────────────────────────────────────────────
+//
+// Compares a fully-fused 5-node chain (all pure) against a chain broken by
+// `pure = false` on the middle node, forcing two unfused segments and one
+// unfused separator. The fused version should be measurably faster because it
+// eliminates four intermediate Vec allocations and four loop dispatches.
+
+fn bench_fusion_vs_unfused(c: &mut Criterion) {
+    let mut group = c.benchmark_group("fusion_vs_unfused");
+    // 256 elements = one AlignedChunk. Chosen to isolate per-element loop
+    // overhead vs allocator noise from the 1M-row pipeline group.
+    const FUSION_N: usize = 256;
+    group.throughput(Throughput::Elements(FUSION_N as u64));
+
+    group.bench_function("fused_5node_f64", |b| {
+        let frame = make_frame_f64(FUSION_N);
+        b.iter(|| {
+            let mut p = pipeline! {
+                source!(price: f64);
+                node!(a = price.row(|x| x * 2.0_f64));
+                node!(b = a.row(|x| x + 1.0_f64));
+                node!(c = b.row(|x| x - 0.5_f64));
+                node!(d = c.row(|x| x * x));
+                node!(e = d.row(|x| x / 2.0_f64));
+                output!(e)
+            };
+            p.push(&frame);
+            p.compute().unwrap();
+            p
+        })
+    });
+
+    group.bench_function("unfused_5node_f64", |b| {
+        let frame = make_frame_f64(FUSION_N);
+        b.iter(|| {
+            // `pure = false` on the middle node breaks the chain into two
+            // independent unfused segments, with the middle node between them.
+            let mut p = pipeline! {
+                source!(price: f64);
+                node!(a = price.row(|x| x * 2.0_f64));
+                node!(b = a.row(|x| x + 1.0_f64), pure = false);
+                node!(c = b.row(|x| x - 0.5_f64));
+                node!(d = c.row(|x| x * x));
+                node!(e = d.row(|x| x / 2.0_f64));
+                output!(e)
+            };
+            p.push(&frame);
+            p.compute().unwrap();
+            p
+        })
+    });
+
+    group.finish();
+}
+
+// ── Fusion correctness tests ──────────────────────────────────────────────────
+//
+// Verify that fused and unfused pipelines produce identical numerical results.
+// These run under `cargo test` without any feature flags.
+
+#[cfg(test)]
+mod fusion_correctness {
+    use super::*;
+
+    #[test]
+    fn fused_and_unfused_agree() {
+        const M: usize = 100;
+        let frame = make_frame_f64(M);
+
+        // Fully-fused pipeline: all 5 nodes are pure and form a linear chain.
+        let mut fused = pipeline! {
+            source!(price: f64);
+            node!(a = price.row(|x| x * 2.0_f64));
+            node!(b = a.row(|x| x + 1.0_f64));
+            node!(c = b.row(|x| x - 0.5_f64));
+            node!(d = c.row(|x| x * x));
+            node!(e = d.row(|x| x / 2.0_f64));
+            output!(e)
+        };
+        fused.push(&frame);
+        fused.compute().unwrap();
+
+        // Unfused pipeline: chain broken by `pure = false` on node `b`.
+        let mut unfused = pipeline! {
+            source!(price: f64);
+            node!(a = price.row(|x| x * 2.0_f64));
+            node!(b = a.row(|x| x + 1.0_f64), pure = false);
+            node!(c = b.row(|x| x - 0.5_f64));
+            node!(d = c.row(|x| x * x));
+            node!(e = d.row(|x| x / 2.0_f64));
+            output!(e)
+        };
+        unfused.push(&frame);
+        unfused.compute().unwrap();
+
+        let fused_e = fused.output().get::<f64>("e").expect("fused e");
+        let unfused_e = unfused.output().get::<f64>("e").expect("unfused e");
+
+        assert_eq!(fused_e.len(), unfused_e.len());
+        for (f, u) in fused_e.iter().zip(unfused_e.iter()) {
+            assert!((f - u).abs() < 1e-9, "fused={f} unfused={u}");
+        }
+    }
+}
+
 // ── criterion entry point ─────────────────────────────────────────────────────
 
 #[cfg(not(feature = "bench-polars"))]
-criterion_group!(benches, bench_vtx_pipeline);
+criterion_group!(benches, bench_vtx_pipeline, bench_fusion_vs_unfused);
 
 #[cfg(feature = "bench-polars")]
 criterion_group!(
     benches,
     bench_vtx_pipeline,
+    bench_fusion_vs_unfused,
     polars_benches::bench_polars_pipeline
 );
 

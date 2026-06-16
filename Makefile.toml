@@ -76,6 +76,11 @@ install_crate = "critcmp"
 command = "critcmp"
 args = ["main", "--threshold", "15"]
 
+[tasks.bench-smoke]
+description = "Quick benchmark compile+run check (--quick, ~10-20 s). Used in PR CI to catch broken benches."
+command = "cargo"
+args = ["bench", "--", "--quick"]
+
 [tasks.coverage]
 # clear = true prevents cargo-make from merging our task with its built-in
 # `coverage` task (which has run_task routing to tarpaulin/kcov). Without it
