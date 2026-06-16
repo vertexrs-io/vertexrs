@@ -124,6 +124,14 @@ If no existing issue fits, create a tracking issue first, then open the PR. Do n
 
 `.github/workflows/planning-sync.yml` runs on every PR opened against `planning` and merges `main` in automatically. This keeps the plan files up to date with the latest codebase state so the Planner always works with current context.
 
+## Phase-planning checkpoints (`planning` → `main`)
+
+`planning` is never merged to `main` on a schedule. The only deliberate trigger for a `planning → main` PR is a **phase-planning checkpoint**: the moment a phase becomes fully planned — every incomplete checkbox in the phase file carries a `<!-- #N -->` annotation pointing at a real GitHub issue (or is an explicit policy item / success metric, not a work item).
+
+When a `plan/*` PR lands on `planning` that completes the planning of a phase, the Planner opens a follow-up `planning → main` PR so the up-to-date plan files ship to `main` and become visible to every downstream agent (Architect, Implementer, Reviewer) reading from `main`.
+
+The Planner does not open a `planning → main` PR for incremental edits — only at phase-planning checkpoints. The PR description must explicitly state which phase has just been fully planned and close a tracking issue filed beforehand.
+
 ## Finding the current phase
 
 The build plan is split by phase under `docs/plans/`. The index lives at `docs/plans/main.md` — read it first to see the phase list and current status, then open the relevant phase file (e.g. `docs/plans/phase-02-macro-system.md`) to find the current incomplete section. Always identify the current phase before planning or implementing anything.
