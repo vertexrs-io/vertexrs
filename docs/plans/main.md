@@ -98,6 +98,10 @@ Applies to the Studio WASM frontend (Phase 8), WebSocket bridge (Phase 8.1), use
 
 ---
 
+## Phase-planning checkpoints
+
+Plan files live on the long-lived `planning` branch and are merged to `main` only at deliberate **phase-planning checkpoints** — the moment a phase becomes fully planned (every incomplete checkbox annotated with a GitHub issue, or marked as a non-work policy item). At that point the Planner opens a `planning → main` PR so the up-to-date plan files become visible to the Architect, Implementer, and Reviewer agents (which all read from `main`). Incremental edits between checkpoints stay on `planning`. See `AGENTS.md` for the full policy.
+
 ## Phase Index
 
 | Phase | Title | Status | File |
