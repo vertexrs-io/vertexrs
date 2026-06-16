@@ -696,19 +696,21 @@ Unlike the columnar benchmarks (which compare to Polars), process graph benchmar
 
 ---
 
-## Phase 2 — Example Pipelines
+### 2.13 Demos
 
-### docs(phase-2): Columnar Pricing Demo <!-- #47 -->
+End-to-end example pipelines that validate the macro UX and the dual columnar/task execution paths against the Phase 2 success metrics.
 
-- [ ] 10-node columnar pipeline demo in ~15 lines of `pipeline!` macro code
+#### 2.13.1 Columnar Pricing Demo <!-- #47 -->
+
+- [ ] 10-node columnar pipeline demo in ~15 lines of `pipeline!` macro code (Phase 2 headline success metric)
 - [ ] Demonstrates source nodes, derived nodes, sub-pipelines, and `output!`
 - [ ] Lives in `docs/examples/` or `vertexrs/examples/`; must compile and run cleanly
-- [ ] Blocked by: 2.11.4 Basic Scalar Operations (G)
+- [ ] Blocked by: 2.11.4 Basic Scalar Operations (#35)
 
-### docs(phase-2): Greeks/Options Demo + ETL Demo <!-- #50 -->
+#### 2.13.2 Greeks/Options Demo + ETL Demo <!-- #50 -->
 
-- [ ] Greeks/options process graph demo: mixing struct-output nodes and columnar nodes via `pipeline!`
+- [ ] Greeks/options process graph demo: mixing struct-output nodes and columnar nodes via `pipeline!` (Phase 2.12 headline success metric)
 - [ ] ETL demo: group-by, time-series rolling, and reshape in a single pipeline
 - [ ] Both demos live in `docs/examples/` or `vertexrs/examples/`; must compile and run cleanly
-- [ ] Blocked by: 2.12.2 Process Graph API (O1), 2.11.2 Group-By (E), 2.11.9 Time-Series (L)
+- [ ] Blocked by: 2.12.2 Process Graph API (#46), 2.11.2 Group-By (#34), 2.11.9 Time-Series (#39)
 
